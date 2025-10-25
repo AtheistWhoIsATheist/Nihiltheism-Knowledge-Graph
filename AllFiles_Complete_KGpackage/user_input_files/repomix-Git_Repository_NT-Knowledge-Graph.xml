@@ -1,0 +1,4575 @@
+<files>
+This section contains the contents of the repository's files.
+
+<file path="ai_suggestions.py">
+from flask import Blueprint, request, jsonify
+import json
+import re
+from typing import List, Dict, Any
+
+ai_bp = Blueprint('ai_suggestions', __name__)
+
+# Load the original Nihiltheism text for analysis
+NIHILTHEISM_TEXT = """
+Nihiltheism represents a philosophical synthesis that transcends traditional nihilism by incorporating theistic elements while maintaining the fundamental recognition of meaninglessness. This paradoxical framework suggests that the divine and the void are not mutually exclusive but rather complementary aspects of ultimate reality.
+
+The core tenets include:
+1. Recognition of existential meaninglessness as a fundamental truth
+2. Acknowledgment of divine presence within the void
+3. Transcendence through embracing both nothingness and the sacred
+4. The dissolution of ego as a path to understanding
+5. Apophatic theology as a means of approaching the ineffable
+
+Key philosophical connections emerge with thinkers like Nietzsche, Heidegger, Cioran, and mystical traditions from both Eastern and Western thought. The framework challenges conventional religious and atheistic perspectives by proposing a third way that honors both the absence and presence of meaning.
+
+Nihiltheism explores themes of:
+- Existential dread and its transformation
+- The relationship between suffering and transcendence
+- Rational responses to meaninglessness
+- The role of despair in spiritual awakening
+- Infinite nothingness as a form of divine experience
+- The uncanny illusion of naturalism
+- Material nightmares and their philosophical implications
+- Suicide as a rational response to existence
+- The goal of nihiltheism as ultimate liberation
+- Profound sadness as a gateway to understanding
+- Naturalistic contemplation and its limits
+- Augmented nihilism through technological mediation
+"""
+
+class PhilosophicalAnalyzer:
+    def __init__(self):
+        self.philosophical_concepts = [
+            "existential anxiety", "ontological uncertainty", "epistemic doubt", "moral relativism",
+            "aesthetic nihilism", "cosmic horror", "temporal finitude", "death anxiety",
+            "absurdist rebellion", "tragic optimism", "negative dialectics", "apophatic mysticism",
+            "phenomenological reduction", "hermeneutic circle", "deconstructive reading",
+            "postmodern condition", "hyperreality", "simulacra", "différance", "logocentrism",
+            "will to power", "eternal recurrence", "amor fati", "übermensch", "ressentiment",
+            "bad faith", "authentic existence", "thrownness", "being-toward-death", "anxiety",
+            "care structure", "temporal ecstasies", "horizon of meaning", "life-world",
+            "intersubjectivity", "embodied cognition", "lived experience", "intentionality",
+            "bracketing", "natural attitude", "transcendental ego", "passive synthesis",
+            "genetic phenomenology", "constitutional analysis", "eidetic reduction",
+            "material a priori", "regional ontology", "fundamental ontology", "ontic-ontological difference"
+        ]
+        
+        self.relationship_types = [
+            "explores", "critiques", "leads to", "confronts", "reveals", "discusses",
+            "prompts", "examines", "challenges", "transcends", "encompasses", "derives from",
+            "contradicts", "synthesizes", "deconstructs", "reconstructs", "problematizes",
+            "illuminates", "obscures", "transforms", "negates", "affirms", "questions",
+            "presupposes", "implies", "entails", "grounds", "undermines", "supports"
+        ]
+
+    def analyze_graph_gaps(self, graph_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Analyze the current graph to identify conceptual gaps and suggest new nodes."""
+        existing_concepts = {node['label'].lower() for node in graph_data['nodes']}
+        suggestions = []
+        
+        # Analyze missing core philosophical concepts
+        for concept in self.philosophical_concepts:
+            if concept.lower() not in existing_concepts:
+                # Check if concept is related to existing nodes
+                relevance_score = self._calculate_relevance(concept, existing_concepts)
+                if relevance_score > 0.3:  # Threshold for relevance
+                    suggestions.append({
+                        'type': 'node',
+                        'label': concept.title(),
+                        'description': self._generate_description(concept),
+                        'category': self._determine_category(concept),
+                        'relevance_score': relevance_score,
+                        'reasoning': self._explain_relevance(concept, existing_concepts)
+                    })
+        
+        # Suggest connections between existing nodes
+        connection_suggestions = self._suggest_connections(graph_data)
+        suggestions.extend(connection_suggestions)
+        
+        # Sort by relevance score
+        suggestions.sort(key=lambda x: x.get('relevance_score', 0), reverse=True)
+        
+        return suggestions[:10]  # Return top 10 suggestions
+
+    def _calculate_relevance(self, concept: str, existing_concepts: set) -> float:
+        """Calculate how relevant a concept is to the existing graph."""
+        concept_words = set(concept.lower().split())
+        
+        # Check for semantic overlap with existing concepts
+        overlap_score = 0
+        for existing in existing_concepts:
+            existing_words = set(existing.split())
+            intersection = concept_words.intersection(existing_words)
+            if intersection:
+                overlap_score += len(intersection) / max(len(concept_words), len(existing_words))
+        
+        # Boost score for nihiltheism-related concepts
+        nihiltheism_keywords = ['nihil', 'void', 'nothing', 'existential', 'anxiety', 'dread', 'despair', 'meaningless']
+        for keyword in nihiltheism_keywords:
+            if keyword in concept.lower():
+                overlap_score += 0.5
+        
+        return min(overlap_score, 1.0)
+
+    def _generate_description(self, concept: str) -> str:
+        """Generate a philosophical description for a concept."""
+        descriptions = {
+            "existential anxiety": "The profound unease arising from confronting one's existence, freedom, and mortality within an apparently meaningless universe.",
+            "ontological uncertainty": "The fundamental doubt about the nature of being and reality, questioning what it means for something to exist.",
+            "epistemic doubt": "Systematic questioning of the possibility and limits of knowledge, challenging the foundations of what we claim to know.",
+            "moral relativism": "The view that ethical judgments are not absolutely true but relative to particular contexts, cultures, or individuals.",
+            "aesthetic nihilism": "The position that aesthetic values and beauty have no objective foundation or ultimate meaning.",
+            "cosmic horror": "The overwhelming dread that emerges from recognizing humanity's insignificance in an vast, indifferent universe.",
+            "temporal finitude": "The recognition of time's limits and the bounded nature of human existence within the flow of temporality.",
+            "death anxiety": "The existential fear and dread associated with the inevitability of death and non-existence.",
+            "absurdist rebellion": "The defiant response to life's absurdity through continued engagement despite the absence of ultimate meaning.",
+            "tragic optimism": "The paradoxical affirmation of life and meaning in full recognition of suffering and tragedy.",
+            "negative dialectics": "A critical method that resists synthesis and maintains tension between opposing concepts.",
+            "apophatic mysticism": "The mystical approach that emphasizes what cannot be said about the divine, proceeding through negation."
+        }
+        
+        return descriptions.get(concept.lower(), f"A philosophical concept related to {concept} within the framework of nihiltheistic thought.")
+
+    def _determine_category(self, concept: str) -> str:
+        """Determine the appropriate category for a concept."""
+        if any(word in concept.lower() for word in ['anxiety', 'dread', 'horror', 'despair', 'finitude', 'death']):
+            return 'sub-concept'
+        elif any(word in concept.lower() for word in ['nihil', 'void', 'nothing', 'meaningless', 'absurd']):
+            return 'core'
+        elif any(word in concept.lower() for word in ['mysticism', 'dialectics', 'phenomenology', 'ontology']):
+            return 'sub-concept'
+        else:
+            return 'sub-concept'
+
+    def _explain_relevance(self, concept: str, existing_concepts: set) -> str:
+        """Explain why this concept is relevant to the existing graph."""
+        related_concepts = []
+        concept_words = set(concept.lower().split())
+        
+        for existing in existing_concepts:
+            existing_words = set(existing.split())
+            if concept_words.intersection(existing_words):
+                related_concepts.append(existing)
+        
+        if related_concepts:
+            return f"This concept relates to existing nodes: {', '.join(list(related_concepts)[:3])}. It would deepen the philosophical analysis by exploring {concept}."
+        else:
+            return f"This concept would expand the nihiltheistic framework by introducing {concept} as a key philosophical dimension."
+
+    def _suggest_connections(self, graph_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Suggest new connections between existing nodes."""
+        nodes = graph_data['nodes']
+        existing_links = {(link['source'], link['target']) for link in graph_data['links']}
+        suggestions = []
+        
+        # Suggest connections based on philosophical relationships
+        for i, node1 in enumerate(nodes):
+            for j, node2 in enumerate(nodes[i+1:], i+1):
+                if (node1['id'], node2['id']) not in existing_links and (node2['id'], node1['id']) not in existing_links:
+                    relationship = self._infer_relationship(node1, node2)
+                    if relationship:
+                        suggestions.append({
+                            'type': 'connection',
+                            'source': node1['id'],
+                            'target': node2['id'],
+                            'source_label': node1['label'],
+                            'target_label': node2['label'],
+                            'relationship': relationship['type'],
+                            'relevance_score': relationship['score'],
+                            'reasoning': relationship['reasoning']
+                        })
+        
+        return suggestions
+
+    def _infer_relationship(self, node1: Dict, node2: Dict) -> Dict[str, Any]:
+        """Infer potential philosophical relationships between two nodes."""
+        label1, label2 = node1['label'].lower(), node2['label'].lower()
+        
+        # Define relationship patterns
+        patterns = [
+            (['nihiltheism', 'nihil'], ['anxiety', 'dread', 'despair'], 'explores', 0.8, "Nihiltheism directly explores existential anxiety and dread"),
+            (['nothingness', 'void'], ['anxiety', 'dread'], 'leads to', 0.7, "Confronting nothingness often leads to existential anxiety"),
+            (['suicide', 'death'], ['rational', 'response'], 'examines', 0.6, "Examines suicide as a rational response to existence"),
+            (['transcendent', 'divine'], ['immanent', 'material'], 'contradicts', 0.5, "Transcendent and immanent aspects create philosophical tension"),
+            (['nietzsche', 'heidegger'], ['nihiltheism'], 'influences', 0.7, "These thinkers significantly influence nihiltheistic thought"),
+            (['meaningless', 'absurd'], ['rational', 'response'], 'prompts', 0.6, "Meaninglessness prompts the search for rational responses")
+        ]
+        
+        for pattern_words1, pattern_words2, relationship, score, reasoning in patterns:
+            if (any(word in label1 for word in pattern_words1) and any(word in label2 for word in pattern_words2)) or \
+               (any(word in label2 for word in pattern_words1) and any(word in label1 for word in pattern_words2)):
+                return {
+                    'type': relationship,
+                    'score': score,
+                    'reasoning': reasoning
+                }
+        
+        return None
+
+@ai_bp.route('/suggest', methods=['POST'])
+def get_suggestions():
+    """Get AI-powered suggestions for new nodes and connections."""
+    try:
+        data = request.get_json()
+        graph_data = data.get('graphData', {})
+        
+        analyzer = PhilosophicalAnalyzer()
+        suggestions = analyzer.analyze_graph_gaps(graph_data)
+        
+        return jsonify({
+            'success': True,
+            'suggestions': suggestions,
+            'total': len(suggestions)
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@ai_bp.route('/analyze-text', methods=['POST'])
+def analyze_text():
+    """Analyze additional text to suggest new concepts."""
+    try:
+        data = request.get_json()
+        text = data.get('text', '')
+        graph_data = data.get('graphData', {})
+        
+        # Extract concepts from text using simple NLP
+        concepts = extract_concepts_from_text(text)
+        existing_concepts = {node['label'].lower() for node in graph_data.get('nodes', [])}
+        
+        new_concepts = []
+        for concept in concepts:
+            if concept.lower() not in existing_concepts:
+                new_concepts.append({
+                    'type': 'node',
+                    'label': concept.title(),
+                    'description': f"A concept extracted from the provided text: {concept}",
+                    'category': 'sub-concept',
+                    'relevance_score': 0.6,
+                    'reasoning': f"This concept was identified in the provided text and relates to nihiltheistic themes."
+                })
+        
+        return jsonify({
+            'success': True,
+            'suggestions': new_concepts[:5],  # Return top 5
+            'total': len(new_concepts)
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+def extract_concepts_from_text(text: str) -> List[str]:
+    """Extract philosophical concepts from text using pattern matching."""
+    # Simple concept extraction - in a real implementation, this would use NLP libraries
+    philosophical_patterns = [
+        r'\b(?:existential|ontological|epistemic|phenomenological|hermeneutic)\s+\w+',
+        r'\b\w+(?:ism|ology|ness|ity|tion)\b',
+        r'\b(?:anxiety|dread|despair|anguish|suffering|pain|void|nothingness|meaninglessness)\b',
+        r'\b(?:transcendence|immanence|divine|sacred|profane|secular)\b'
+    ]
+    
+    concepts = set()
+    for pattern in philosophical_patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        concepts.update(matches)
+    
+    # Filter out common words and keep only meaningful concepts
+    meaningful_concepts = []
+    for concept in concepts:
+        if len(concept) > 3 and concept.lower() not in ['this', 'that', 'with', 'from', 'they', 'them', 'have', 'been', 'were']:
+            meaningful_concepts.append(concept)
+    
+    return list(meaningful_concepts)
+</file>
+
+<file path="AISuggestions.jsx">
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Brain,
+  X,
+  Minimize2,
+  Maximize2,
+  Sparkles,
+  Plus,
+  Link,
+  Loader2,
+  BookOpen,
+  Users,
+  Quote,
+  Lightbulb,
+  RefreshCw,
+  FileText
+} from 'lucide-react';
+import graphStore from '../store/graphStore'; // Import the graph store
+
+const AISuggestions = ({ onClose }) => {
+  const [isVisible, setIsVisible] = useState(true);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('auto'); // 'auto' or 'text'
+  const [customText, setCustomText] = useState('');
+  const [error, setError] = useState(null);
+  const [graphData, setGraphData] = useState(graphStore.toVisualizationFormat());
+
+  useEffect(() => {
+    const unsubscribe = graphStore.subscribe(newState => {
+      setGraphData(graphStore.toVisualizationFormat());
+    });
+    return () => unsubscribe();
+  }, []);
+
+  if (!isVisible) return null;
+
+  const getCategoryIcon = (category) => {
+    switch (category) {
+      case 'core_concept': return <BookOpen className="w-3 h-3" />;
+      case 'sub_concept': return <Lightbulb className="w-3 h-3" />;
+      case 'thinker': return <Users className="w-3 h-3" />;
+      case 'key_phrase': return <Quote className="w-3 h-3" />;
+      default: return <BookOpen className="w-3 h-3" />;
+    }
+  };
+
+  const getCategoryColor = (category) => {
+    switch (category) {
+      case 'core_concept': return 'bg-purple-500';
+      case 'sub_concept': return 'bg-purple-300';
+      case 'thinker': return 'bg-amber-500';
+      case 'key_phrase': return 'bg-emerald-500';
+      default: return 'bg-purple-500';
+    }
+  };
+
+  const fetchAutoSuggestions = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch("http://localhost:5000/api/suggest", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ graphData: graphStore.toVisualizationFormat() })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch suggestions');
+      }
+      
+      const data = await response.json();
+      setSuggestions(data.suggestions || []);
+    } catch (err) {
+      setError(err.message);
+      console.error('Error fetching suggestions:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const analyzeCustomText = async () => {
+    if (!customText.trim()) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch("http://localhost:5000/api/analyze-text", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: customText,
+          graphData: graphStore.toVisualizationFormat()
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to analyze text');
+      }
+      
+      const data = await response.json();
+      setSuggestions(data.suggestions || []);
+    } catch (err) {
+      setError(err.message);
+      console.error('Error analyzing text:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAcceptSuggestion = (suggestion) => {
+    if (suggestion.type === 'node') {
+      const newNode = {
+        id: suggestion.label.trim().toLowerCase().replace(/\s+/g, '-'),
+        label: suggestion.label,
+        abstract: suggestion.description,
+        category: suggestion.category,
+        importance: suggestion.relevance_score ? Math.ceil(suggestion.relevance_score * 5) : 3, // Scale 0-1 to 1-5
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      graphStore.dispatch({
+        type: 'ADD_NODE',
+        payload: newNode,
+        idempotencyKey: `ai-add-node-${newNode.id}`
+      });
+    } else if (suggestion.type === 'connection') {
+      const newConnection = {
+        id: `${suggestion.source}-${suggestion.target}-${suggestion.relationship}`,
+        source: suggestion.source,
+        target: suggestion.target,
+        relation: suggestion.relationship,
+        directed: graphStore.isDirectedRelation(suggestion.relationship),
+        weight: suggestion.relevance_score ? Math.ceil(suggestion.relevance_score * 5) : 1
+      };
+      graphStore.dispatch({
+        type: 'ADD_EDGE',
+        payload: newConnection,
+        idempotencyKey: `ai-add-edge-${newConnection.id}`
+      });
+    }
+    
+    // Remove the accepted suggestion from the list
+    setSuggestions(prev => prev.filter(s => s !== suggestion));
+  };
+
+  const handleRejectSuggestion = (suggestion) => {
+    setSuggestions(prev => prev.filter(s => s !== suggestion));
+  };
+
+  // Auto-fetch suggestions when component mounts or graph data changes
+  useEffect(() => {
+    if (activeTab === 'auto' && graphData.nodes.length > 0) {
+      fetchAutoSuggestions();
+    }
+  }, [graphData, activeTab]);
+
+  return (
+    <div className="absolute top-4 left-80 z-10 w-96">
+      <Card className="bg-card/90 backdrop-blur-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Brain className="w-4 h-4 text-purple-400" />
+              AI Suggestions
+            </CardTitle>
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setIsMinimized(!isMinimized)}
+                className="h-6 w-6 p-0"
+              >
+                {isMinimized ? <Maximize2 className="w-3 h-3" /> : <Minimize2 className="w-3 h-3" />}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onClose}
+                className="h-6 w-6 p-0"
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+          </div>
+          {!isMinimized && (
+            <CardDescription className="text-xs">
+              AI-powered suggestions for expanding your philosophical graph
+            </CardDescription>
+          )}
+        </CardHeader>
+        
+        {!isMinimized && (
+          <CardContent className="space-y-4">
+            {/* Tab Selection */}
+            <div className="flex gap-1 p-1 bg-muted rounded-lg">
+              <Button
+                size="sm"
+                variant={activeTab === 'auto' ? 'default' : 'ghost'}
+                onClick={() => setActiveTab('auto')}
+                className="flex-1 text-xs"
+              >
+                <Sparkles className="w-3 h-3 mr-1" />
+                Auto Analysis
+              </Button>
+              <Button
+                size="sm"
+                variant={activeTab === 'text' ? 'default' : 'ghost'}
+                onClick={() => setActiveTab('text')}
+                className="flex-1 text-xs"
+              >
+                <FileText className="w-3 h-3 mr-1" />
+                Text Analysis
+              </Button>
+            </div>
+
+            {/* Auto Analysis Tab */}
+            {activeTab === 'auto' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium">Graph Analysis</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={fetchAutoSuggestions}
+                    disabled={loading}
+                    className="text-xs h-6"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-3 h-3" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  AI analyzes your current graph structure and suggests relevant philosophical concepts and connections.
+                </p>
+              </div>
+            )}
+
+            {/* Text Analysis Tab */}
+            {activeTab === 'text' && (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Philosophical Text</label>
+                  <Textarea
+                    placeholder="Paste philosophical text to extract concepts..."
+                    value={customText}
+                    onChange={(e) => setCustomText(e.target.value)}
+                    className="text-xs min-h-[80px]"
+                  />
+                </div>
+                <Button
+                  onClick={analyzeCustomText}
+                  disabled={loading || !customText.trim()}
+                  className="w-full text-xs"
+                  size="sm"
+                >
+                  {loading ? (
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  ) : (
+                    <Brain className="w-3 h-3 mr-1" />
+                  )}
+                  Analyze Text
+                </Button>
+              </div>
+            )}
+
+            {/* Error Display */}
+            {error && (
+              <div className="p-2 bg-destructive/10 border border-destructive/20 rounded text-xs text-destructive">
+                {error}
+              </div>
+            )}
+
+            {/* Suggestions List */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium">Suggestions ({suggestions.length})</span>
+                {suggestions.length > 0 && (
+                  <Badge variant="secondary" className="text-xs">
+                    AI Generated
+                  </Badge>
+                )}
+              </div>
+              
+              <ScrollArea className="h-64">
+                <div className="space-y-2">
+                  {loading && suggestions.length === 0 && (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      <span className="text-xs text-muted-foreground">Analyzing...</span>
+                    </div>
+                  )}
+                  
+                  {suggestions.length === 0 && !loading && (
+                    <div className="text-center py-8">
+                      <Sparkles className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-xs text-muted-foreground">
+                        {activeTab === 'auto'
+                          ? 'Click refresh to get AI suggestions based on your graph'
+                          : 'Enter philosophical text above to extract concepts'
+                        }
+                      </p>
+                    </div>
+                  )}
+                  
+                  {suggestions.map((suggestion, index) => (
+                    <Card key={index} className="p-3 bg-muted/30">
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-2">
+                            {suggestion.type === 'node' ? (
+                              <>
+                                {getCategoryIcon(suggestion.category)}
+                                <span className="text-xs font-medium">{suggestion.label}</span>
+                                <div className={`w-2 h-2 rounded-full ${getCategoryColor(suggestion.category)}`} />
+                              </>
+                            ) : (
+                              <>
+                                <Link className="w-3 h-3" />
+                                <span className="text-xs font-medium">
+                                  {suggestion.source_label} → {suggestion.target_label}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            {Math.round(suggestion.relevance_score * 100)}%
+                          </Badge>
+                        </div>
+                        
+                        {suggestion.type === 'node' && (
+                          <p className="text-xs text-muted-foreground">
+                            {suggestion.description}
+                          </p>
+                        )}
+                        
+                        {suggestion.type === 'connection' && (
+                          <p className="text-xs text-muted-foreground">
+                            Relationship: <span className="font-medium">{suggestion.relationship}</span>
+                          </p>
+                        )}
+                        
+                        <p className="text-xs text-muted-foreground italic">
+                          {suggestion.reasoning}
+                        </p>
+                        
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            onClick={() => handleAcceptSuggestion(suggestion)}
+                            className="text-xs h-6 flex-1"
+                          >
+                            <Plus className="w-3 h-3 mr-1" />
+                            Accept
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleRejectSuggestion(suggestion)}
+                            className="text-xs h-6"
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+    </div>
+  );
+};
+
+export default AISuggestions;
+</file>
+
+<file path="App.css">
+/* Nihiltheism Graph - Simplified CSS */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  background-color: #0f172a;
+  color: #e2e8f0;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+#root {
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* Layout utilities */
+.h-screen { height: 100vh; }
+.w-screen { width: 100vw; }
+.overflow-hidden { overflow: hidden; }
+.bg-slate-900 { background-color: #0f172a; }
+.text-white { color: white; }
+.relative { position: relative; }
+.absolute { position: absolute; }
+.inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
+.top-0 { top: 0; }
+.left-0 { left: 0; }
+.right-0 { right: 0; }
+.bottom-4 { bottom: 1rem; }
+.right-4 { right: 1rem; }
+.left-4 { left: 1rem; }
+.top-20 { top: 5rem; }
+.w-80 { width: 20rem; }
+.max-w-2xl { max-width: 42rem; }
+.mx-4 { margin-left: 1rem; margin-right: 1rem; }
+
+/* Flexbox utilities */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 0.75rem; }
+.gap-4 { gap: 1rem; }
+
+/* Spacing utilities */
+.px-4 { padding-left: 1rem; padding-right: 1rem; }
+.py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+.p-4 { padding: 1rem; }
+.p-6 { padding: 1.5rem; }
+
+/* Z-index utilities */
+.z-20 { z-index: 20; }
+.z-30 { z-index: 30; }
+.z-40 { z-index: 40; }
+
+/* Pointer events */
+.pointer-events-none { pointer-events: none; }
+.pointer-events-auto { pointer-events: auto; }
+
+/* Background utilities */
+.bg-slate-800\/90 { background-color: rgba(30, 41, 59, 0.9); }
+.bg-black\/50 { background-color: rgba(0, 0, 0, 0.5); }
+.backdrop-blur-sm { backdrop-filter: blur(4px); }
+
+/* Border utilities */
+.border-b { border-bottom-width: 1px; }
+.border-slate-700 { border-color: #334155; }
+.rounded-lg { border-radius: 0.5rem; }
+.rounded-full { border-radius: 9999px; }
+
+/* Text utilities */
+.text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+.text-xs { font-size: 0.75rem; line-height: 1rem; }
+.font-bold { font-weight: 700; }
+.font-semibold { font-weight: 600; }
+.text-purple-400 { color: #c084fc; }
+
+/* Size utilities */
+.w-3 { width: 0.75rem; }
+.h-3 { height: 0.75rem; }
+.w-5 { width: 1.25rem; }
+.h-5 { height: 1.25rem; }
+.w-6 { width: 1.5rem; }
+.h-6 { height: 1.5rem; }
+.w-12 { width: 3rem; }
+.h-12 { height: 3rem; }
+
+/* Margin utilities */
+.mr-1 { margin-right: 0.25rem; }
+
+/* Color utilities */
+.bg-purple-600 { background-color: #9333ea; }
+.bg-blue-600 { background-color: #2563eb; }
+.bg-gray-800 { background-color: #1f2937; }
+.bg-gray-100 { background-color: #f3f4f6; }
+.text-gray-800 { color: #1f2937; }
+.text-gray-200 { color: #e5e7eb; }
+.text-gray-700 { color: #374151; }
+.text-white { color: white; }
+.border-gray-300 { border-color: #d1d5db; }
+.border-gray-700 { border-color: #374151; }
+
+/* Shadow utilities */
+.shadow-lg { box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); }
+.shadow-sm { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }
+
+/* Hover effects */
+.hover\:bg-purple-700:hover { background-color: #7c3aed; }
+.hover\:bg-blue-700:hover { background-color: #1d4ed8; }
+.hover\:bg-gray-100:hover { background-color: #f3f4f6; }
+
+/* Transitions */
+.transition-colors { transition-property: color, background-color, border-color, text-decoration-color, fill, stroke; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+
+/* Focus styles */
+.focus-visible\:outline-none:focus-visible { outline: 2px solid transparent; outline-offset: 2px; }
+.focus-visible\:ring-2:focus-visible { --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color); --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color); box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000); }
+
+/* Disabled styles */
+.disabled\:opacity-50:disabled { opacity: 0.5; }
+.disabled\:pointer-events-none:disabled { pointer-events: none; }
+
+/* Button base styles */
+.btn-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+.btn-default {
+  background-color: #2563eb;
+  color: white;
+}
+
+.btn-default:hover {
+  background-color: #1d4ed8;
+}
+
+.btn-outline {
+  background-color: transparent;
+  border: 1px solid #d1d5db;
+  color: #374151;
+}
+
+.btn-outline:hover {
+  background-color: #f3f4f6;
+}
+
+.btn-sm {
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+}
+
+.btn-default-size {
+  height: 2.5rem;
+  padding: 0.5rem 1rem;
+}
+
+/* Card styles */
+.card {
+  border-radius: 0.5rem;
+  border: 1px solid #374151;
+  background-color: #1f2937;
+  color: white;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+.card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 1.5rem;
+}
+
+.card-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.025em;
+}
+
+.card-content {
+  padding: 1.5rem;
+  padding-top: 0;
+}
+
+/* Badge styles */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-default {
+  background-color: #f3f4f6;
+  color: #1f2937;
+}
+
+.badge-secondary {
+  background-color: #1f2937;
+  color: #e5e7eb;
+}
+
+.badge-outline {
+  border: 1px solid #d1d5db;
+  color: #374151;
+  background-color: transparent;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}
+
+/* Graph container */
+.graph-container {
+  background: radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.1) 0%, rgba(15, 23, 42, 1) 70%);
+}
+</file>
+
+<file path="App.jsx">
+import React, { useState, useEffect } from 'react';
+import { Brain, Network, BookOpen, Edit, Sparkles, Plus, Expand } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import NihiltheismGraph from './components/NihiltheismGraph';
+import NodeDetailPanel from './components/NodeDetailPanel';
+import GraphStats from './components/GraphStats';
+import GraphControls from './components/GraphControls';
+import AISuggestions from './components/AISuggestions';
+import NodeEditor from './components/NodeEditor';
+import WelcomePanel from './components/WelcomePanel';
+import ExpansionControls from './components/ExpansionControls';
+import graphStore from './store/graphStore';
+
+function App() {
+  const [selectedNode, setSelectedNode] = useState(null);
+  const [categoryFilters, setCategoryFilters] = useState([]);
+  const [showLabels, setShowLabels] = useState(true);
+  const [showAI, setShowAI] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
+  const [showExpansion, setShowExpansion] = useState(false);
+  const [graphData, setGraphData] = useState(graphStore.toVisualizationFormat());
+
+  useEffect(() => {
+    const unsubscribe = graphStore.subscribe(() => {
+      setGraphData(graphStore.toVisualizationFormat());
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleNodeClick = (node) => {
+    setSelectedNode(node);
+    setShowWelcome(false);
+  };
+
+  const handleClosePanel = () => {
+    setSelectedNode(null);
+  };
+
+  const handleCategoryFilter = (category) => {
+    setCategoryFilters(prev => 
+      prev.includes(category) 
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
+
+  const handleToggleLabels = () => {
+    setShowLabels(!showLabels);
+  };
+
+  const handleRandomNode = () => {
+    const nodes = Object.values(graphStore.getState().nodes);
+    if (nodes.length > 0) {
+      const randomNode = nodes[Math.floor(Math.random() * nodes.length)];
+      handleNodeClick(randomNode);
+    }
+  };
+
+  const handleCenterGraph = () => {
+    // This will be handled by the graph component
+  };
+
+  return (
+    <div className="h-screen w-screen overflow-hidden bg-slate-900 text-white relative">
+      {/* Background Graph */}
+      <div className="absolute inset-0">
+        <NihiltheismGraph
+          data={graphData}
+          onNodeClick={handleNodeClick}
+          selectedNode={selectedNode}
+          categoryFilters={categoryFilters}
+          showLabels={showLabels}
+          onRandomNode={handleRandomNode}
+          onCenterGraph={handleCenterGraph}
+        />
+      </div>
+
+      {/* Header Bar - Fixed at top */}
+      <div className="absolute top-0 left-0 right-0 z-30 bg-slate-800/90 backdrop-blur-sm border-b border-slate-700">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Brain className="w-6 h-6 text-purple-400" />
+            <h1 className="text-lg font-bold">Nihiltheism Interactive Graph</h1>
+            <Badge variant="secondary" className="text-xs">
+              {graphData.nodes.length} concepts • {graphData.links.length} connections
+            </Badge>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={showStats ? "default" : "outline"}
+              onClick={() => setShowStats(!showStats)}
+              className="text-xs"
+            >
+              <Network className="w-3 h-3 mr-1" />
+              Stats
+            </Button>
+            <Button
+              size="sm"
+              variant={showEditor ? "default" : "outline"}
+              onClick={() => setShowEditor(!showEditor)}
+              className="text-xs"
+            >
+              <Edit className="w-3 h-3 mr-1" />
+              Edit
+            </Button>
+            <Button
+              size="sm"
+              variant={showAI ? "default" : "outline"}
+              onClick={() => setShowAI(!showAI)}
+              className="text-xs"
+            >
+              <Sparkles className="w-3 h-3 mr-1" />
+              AI
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Left Sidebar - Non-overlapping */}
+      <div className="absolute left-4 top-20 bottom-4 w-80 flex flex-col gap-4 z-20 pointer-events-none">
+        {/* Graph Controls - Always visible */}
+        <div className="pointer-events-auto">
+          <GraphControls
+            onCategoryFilter={handleCategoryFilter}
+            activeCategoryFilters={categoryFilters}
+            onRandomNode={handleRandomNode}
+            onCenterGraph={handleCenterGraph}
+            onToggleLabels={handleToggleLabels}
+            showLabels={showLabels}
+          />
+        </div>
+
+        {/* Node Editor - Conditional */}
+        {showEditor && (
+          <div className="pointer-events-auto">
+            <NodeEditor
+              onClose={() => setShowEditor(false)}
+            />
+          </div>
+        )}
+
+        {/* Expansion Controls - Conditional */}
+        {showExpansion && (
+          <div className="pointer-events-auto">
+            <ExpansionControls
+              selectedNode={selectedNode}
+              onClose={() => setShowExpansion(false)}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Right Sidebar - Non-overlapping */}
+      <div className="absolute right-4 top-20 bottom-4 w-80 flex flex-col gap-4 z-20 pointer-events-none">
+        {/* Node Detail Panel - Conditional */}
+        {selectedNode && (
+          <div className="pointer-events-auto">
+            <NodeDetailPanel
+              node={selectedNode}
+              onClose={handleClosePanel}
+              graphData={graphData}
+            />
+          </div>
+        )}
+
+        {/* Graph Stats - Conditional */}
+        {showStats && (
+          <div className="pointer-events-auto">
+            <GraphStats
+              graphData={graphData}
+              selectedNode={selectedNode}
+              onNodeSelect={handleNodeClick}
+              onClose={() => setShowStats(false)}
+            />
+          </div>
+        )}
+
+        {/* AI Suggestions - Conditional */}
+        {showAI && (
+          <div className="pointer-events-auto">
+            <AISuggestions
+              onClose={() => setShowAI(false)}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Center Overlay - Welcome Panel */}
+      {showWelcome && !selectedNode && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-40 pointer-events-auto">
+          <div className="max-w-2xl mx-4">
+            <WelcomePanel
+              onClose={() => setShowWelcome(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Floating Action Button - Bottom Right */}
+      <div className="absolute bottom-4 right-4 z-30 pointer-events-auto">
+        <Button
+          onClick={() => setShowExpansion(!showExpansion)}
+          className="w-12 h-12 rounded-full bg-purple-600 hover:bg-purple-700 shadow-lg"
+          title="Expand Graph"
+        >
+          <Expand className="w-5 h-5" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export default App;
+</file>
+
+<file path="badge.jsx">
+import React from 'react';
+
+const Badge = ({ children, variant = 'default', className = '' }) => {
+  const baseClasses = 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium';
+  
+  const variants = {
+    default: 'bg-gray-100 text-gray-800',
+    secondary: 'bg-gray-800 text-gray-200',
+    outline: 'border border-gray-300 text-gray-700',
+  };
+
+  return (
+    <span className={`${baseClasses} ${variants[variant]} ${className}`}>
+      {children}
+    </span>
+  );
+};
+
+export { Badge };
+</file>
+
+<file path="button.jsx">
+import React from 'react';
+
+const Button = ({ children, variant = 'default', size = 'default', className = '', onClick, ...props }) => {
+  const baseClasses = 'inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+  
+  const variants = {
+    default: 'bg-primary text-primary-foreground hover:bg-primary/90 bg-blue-600 text-white hover:bg-blue-700',
+    outline: 'border border-input hover:bg-accent hover:text-accent-foreground border-gray-300 hover:bg-gray-100',
+    ghost: 'hover:bg-accent hover:text-accent-foreground hover:bg-gray-100',
+  };
+
+  const sizes = {
+    default: 'h-10 py-2 px-4',
+    sm: 'h-9 px-3 rounded-md text-sm',
+    lg: 'h-11 px-8 rounded-md',
+  };
+
+  return (
+    <button 
+      className={`${baseClasses} ${variants[variant]} ${sizes[size]} ${className}`}
+      onClick={onClick}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+};
+
+export { Button };
+</file>
+
+<file path="card.jsx">
+import React from 'react';
+
+const Card = ({ children, className = '' }) => (
+  <div className={`rounded-lg border bg-card text-card-foreground shadow-sm bg-gray-800 border-gray-700 text-white ${className}`}>
+    {children}
+  </div>
+);
+
+const CardHeader = ({ children, className = '' }) => (
+  <div className={`flex flex-col space-y-1.5 p-6 ${className}`}>
+    {children}
+  </div>
+);
+
+const CardTitle = ({ children, className = '' }) => (
+  <h3 className={`text-2xl font-semibold leading-none tracking-tight ${className}`}>
+    {children}
+  </h3>
+);
+
+const CardDescription = ({ children, className = '' }) => (
+  <p className={`text-sm text-gray-400 ${className}`}>
+    {children}
+  </p>
+);
+
+const CardContent = ({ children, className = '' }) => (
+  <div className={`p-6 pt-0 ${className}`}>
+    {children}
+  </div>
+);
+
+export { Card, CardHeader, CardTitle, CardDescription, CardContent };
+</file>
+
+<file path="expansionController.js">
+class ExpansionController {
+  constructor() {
+    this.maxDepth = 2;
+    this.maxNodesPerExpand = 100;
+    this.maxEdgesPerExpand = 200;
+    this.visitedNodeIds = new Set();
+    this.currentJobs = new Map(); // Track running expansion jobs
+    this.jobCounter = 0;
+  }
+
+  // Configuration methods
+  setMaxDepth(depth) {
+    this.maxDepth = Math.max(1, Math.min(3, depth)); // Constrain to 1-3
+  }
+
+  setMaxNodesPerExpand(count) {
+    this.maxNodesPerExpand = Math.max(10, Math.min(500, count)); // Constrain to 10-500
+  }
+
+  setMaxEdgesPerExpand(count) {
+    this.maxEdgesPerExpand = Math.max(20, Math.min(1000, count)); // Constrain to 20-1000
+  }
+
+  // Job management
+  createJob(type, config = {}) {
+    const jobId = `job_${++this.jobCounter}`;
+    const job = {
+      id: jobId,
+      type,
+      config,
+      status: 'pending',
+      progress: { current: 0, total: 0 },
+      startTime: Date.now(),
+      cancelled: false,
+      results: { nodes: [], edges: [] }
+    };
+    
+    this.currentJobs.set(jobId, job);
+    return job;
+  }
+
+  cancelJob(jobId) {
+    const job = this.currentJobs.get(jobId);
+    if (job) {
+      job.cancelled = true;
+      job.status = 'cancelled';
+      this.currentJobs.delete(jobId);
+      return true;
+    }
+    return false;
+  }
+
+  getJob(jobId) {
+    return this.currentJobs.get(jobId);
+  }
+
+  getAllJobs() {
+    return Array.from(this.currentJobs.values());
+  }
+
+  // Expansion methods
+  async expandFromNode(seedNodeId, graphStore, progressCallback = null) {
+    const job = this.createJob('node_expansion', { seedNodeId });
+    
+    try {
+      job.status = 'running';
+      
+      // Get seed node
+      const seedNode = graphStore.getNode(seedNodeId);
+      if (!seedNode) {
+        throw new Error(`Seed node ${seedNodeId} not found`);
+      }
+
+      // Mark seed as visited
+      this.visitedNodeIds.add(seedNodeId);
+      
+      // Perform bounded expansion
+      const results = await this.performBoundedExpansion(seedNode, graphStore, job, progressCallback);
+      
+      if (job.cancelled) {
+        job.status = 'cancelled';
+        return { cancelled: true };
+      }
+
+      job.status = 'completed';
+      job.results = results;
+      
+      // Clean up completed job after a delay
+      setTimeout(() => this.currentJobs.delete(job.id), 5000);
+      
+      return results;
+      
+    } catch (error) {
+      job.status = 'error';
+      job.error = error.message;
+      throw error;
+    }
+  }
+
+  async performBoundedExpansion(seedNode, graphStore, job, progressCallback) {
+    const results = { nodes: [], edges: [] };
+    const queue = [{ node: seedNode, depth: 0 }];
+    const processedNodes = new Set([seedNode.id]);
+    
+    // Estimate total work for progress tracking
+    job.progress.total = Math.min(this.maxNodesPerExpand, 50); // Rough estimate
+    
+    while (queue.length > 0 && !job.cancelled) {
+      const { node, depth } = queue.shift();
+      
+      // Check depth limit
+      if (depth >= this.maxDepth) {
+        continue;
+      }
+      
+      // Check node limit
+      if (results.nodes.length >= this.maxNodesPerExpand) {
+        console.warn(`Node cap reached (${this.maxNodesPerExpand}). Stopping expansion.`);
+        break;
+      }
+      
+      // Check edge limit
+      if (results.edges.length >= this.maxEdgesPerExpand) {
+        console.warn(`Edge cap reached (${this.maxEdgesPerExpand}). Stopping expansion.`);
+        break;
+      }
+      
+      // Simulate expansion logic (in a real implementation, this would call AI services)
+      const expandedData = await this.simulateNodeExpansion(node, depth);
+      
+      // Process new nodes
+      for (const newNode of expandedData.nodes) {
+        if (!processedNodes.has(newNode.id) && !this.visitedNodeIds.has(newNode.id)) {
+          results.nodes.push(newNode);
+          processedNodes.add(newNode.id);
+          this.visitedNodeIds.add(newNode.id);
+          
+          // Add to queue for further expansion if within depth limit
+          if (depth + 1 < this.maxDepth) {
+            queue.push({ node: newNode, depth: depth + 1 });
+          }
+        }
+      }
+      
+      // Process new edges
+      for (const newEdge of expandedData.edges) {
+        if (results.edges.length < this.maxEdgesPerExpand) {
+          results.edges.push(newEdge);
+        }
+      }
+      
+      // Update progress
+      job.progress.current = Math.min(job.progress.current + 1, job.progress.total);
+      
+      if (progressCallback) {
+        progressCallback(job.progress);
+      }
+      
+      // Small delay to allow for cancellation and UI updates
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    
+    return results;
+  }
+
+  async simulateNodeExpansion(node, depth) {
+    // Simulate AI expansion - in real implementation, this would call AI services
+    const mockNodes = [];
+    const mockEdges = [];
+    
+    // Generate fewer nodes at deeper levels
+    const nodeCount = Math.max(1, 5 - depth * 2);
+    
+    for (let i = 0; i < nodeCount; i++) {
+      const newNodeId = `expanded_${node.id}_${depth}_${i}`;
+      const newNode = {
+        id: newNodeId,
+        label: `Related to ${node.label} (${i + 1})`,
+        abstract: `A concept related to ${node.label} discovered through AI expansion at depth ${depth}`,
+        category: 'sub_concept',
+        importance: Math.max(1, node.importance - depth),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      mockNodes.push(newNode);
+      
+      // Create edge back to parent
+      const newEdge = {
+        id: `${node.id}-${newNodeId}`,
+        source: node.id,
+        target: newNodeId,
+        relation: 'derives',
+        weight: Math.max(1, 3 - depth),
+        directed: true
+      };
+      
+      mockEdges.push(newEdge);
+    }
+    
+    return { nodes: mockNodes, edges: mockEdges };
+  }
+
+  // Batch expansion with backpressure
+  async expandMultipleNodes(nodeIds, graphStore, progressCallback = null) {
+    const job = this.createJob('batch_expansion', { nodeIds });
+    
+    try {
+      job.status = 'running';
+      job.progress.total = nodeIds.length;
+      
+      const allResults = { nodes: [], edges: [] };
+      
+      for (let i = 0; i < nodeIds.length && !job.cancelled; i++) {
+        const nodeId = nodeIds[i];
+        
+        // Check limits before each expansion
+        if (allResults.nodes.length >= this.maxNodesPerExpand) {
+          console.warn(`Global node cap reached. Stopping batch expansion.`);
+          break;
+        }
+        
+        const nodeResults = await this.expandFromNode(nodeId, graphStore);
+        
+        if (!nodeResults.cancelled) {
+          allResults.nodes.push(...nodeResults.nodes);
+          allResults.edges.push(...nodeResults.edges);
+        }
+        
+        job.progress.current = i + 1;
+        
+        if (progressCallback) {
+          progressCallback(job.progress);
+        }
+      }
+      
+      job.status = 'completed';
+      job.results = allResults;
+      
+      return allResults;
+      
+    } catch (error) {
+      job.status = 'error';
+      job.error = error.message;
+      throw error;
+    }
+  }
+
+  // Reset visited nodes (for new sessions)
+  resetVisitedNodes() {
+    this.visitedNodeIds.clear();
+  }
+
+  // Get expansion statistics
+  getStats() {
+    return {
+      maxDepth: this.maxDepth,
+      maxNodesPerExpand: this.maxNodesPerExpand,
+      maxEdgesPerExpand: this.maxEdgesPerExpand,
+      visitedNodesCount: this.visitedNodeIds.size,
+      activeJobsCount: this.currentJobs.size,
+      activeJobs: this.getAllJobs().filter(job => job.status === 'running')
+    };
+  }
+
+  // Validate expansion request
+  validateExpansionRequest(nodeIds, graphStore) {
+    const errors = [];
+    
+    if (!Array.isArray(nodeIds) || nodeIds.length === 0) {
+      errors.push('No nodes specified for expansion');
+    }
+    
+    for (const nodeId of nodeIds) {
+      if (!graphStore.getNode(nodeId)) {
+        errors.push(`Node ${nodeId} not found`);
+      }
+    }
+    
+    if (this.currentJobs.size >= 5) { // Max concurrent jobs
+      errors.push('Too many expansion jobs running. Please wait or cancel existing jobs.');
+    }
+    
+    return errors;
+  }
+}
+
+// Create singleton instance
+export const expansionController = new ExpansionController();
+export default expansionController;
+</file>
+
+<file path="ExpansionControls.jsx">
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { 
+  Expand, 
+  X, 
+  Minimize2, 
+  Maximize2,
+  Settings,
+  Play,
+  Square,
+  AlertTriangle,
+  CheckCircle,
+  Loader2
+} from 'lucide-react';
+import expansionController from '../store/expansionController';
+import graphStore from '../store/graphStore';
+
+const ExpansionControls = ({ selectedNode, onClose }) => {
+  const [isVisible, setIsVisible] = useState(true);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [stats, setStats] = useState(expansionController.getStats());
+  const [activeJobs, setActiveJobs] = useState([]);
+  const [showSettings, setShowSettings] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStats(expansionController.getStats());
+      setActiveJobs(expansionController.getAllJobs());
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!isVisible) return null;
+
+  const handleExpand = async () => {
+    if (!selectedNode) return;
+
+    try {
+      const errors = expansionController.validateExpansionRequest([selectedNode.id], graphStore);
+      if (errors.length > 0) {
+        alert(`Expansion failed: ${errors.join(', ')}`);
+        return;
+      }
+
+      const results = await expansionController.expandFromNode(
+        selectedNode.id,
+        graphStore,
+        (progress) => {
+          // Progress callback - component will update via polling
+        }
+      );
+
+      if (!results.cancelled) {
+        // Apply results to graph store
+        results.nodes.forEach(node => {
+          graphStore.dispatch({
+            type: 'ADD_NODE',
+            payload: node,
+            idempotencyKey: `expand-node-${node.id}`
+          });
+        });
+
+        results.edges.forEach(edge => {
+          graphStore.dispatch({
+            type: 'ADD_EDGE',
+            payload: edge,
+            idempotencyKey: `expand-edge-${edge.id}`
+          });
+        });
+      }
+    } catch (error) {
+      console.error('Expansion failed:', error);
+      alert(`Expansion failed: ${error.message}`);
+    }
+  };
+
+  const handleCancelJob = (jobId) => {
+    expansionController.cancelJob(jobId);
+  };
+
+  const handleSettingsChange = (setting, value) => {
+    switch (setting) {
+      case 'maxDepth':
+        expansionController.setMaxDepth(parseInt(value));
+        break;
+      case 'maxNodes':
+        expansionController.setMaxNodesPerExpand(parseInt(value));
+        break;
+      case 'maxEdges':
+        expansionController.setMaxEdgesPerExpand(parseInt(value));
+        break;
+    }
+    setStats(expansionController.getStats());
+  };
+
+  const getJobStatusIcon = (status) => {
+    switch (status) {
+      case 'running':
+        return <Loader2 className="w-3 h-3 animate-spin text-blue-500" />;
+      case 'completed':
+        return <CheckCircle className="w-3 h-3 text-green-500" />;
+      case 'cancelled':
+        return <Square className="w-3 h-3 text-gray-500" />;
+      case 'error':
+        return <AlertTriangle className="w-3 h-3 text-red-500" />;
+      default:
+        return <Loader2 className="w-3 h-3 text-gray-500" />;
+    }
+  };
+
+  return (
+    <div className="absolute bottom-4 right-4 z-10 w-80">
+      <Card className="bg-card/90 backdrop-blur-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Expand className="w-4 h-4" />
+              Expansion Control
+            </CardTitle>
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowSettings(!showSettings)}
+                className="h-6 w-6 p-0"
+              >
+                <Settings className="w-3 h-3" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setIsMinimized(!isMinimized)}
+                className="h-6 w-6 p-0"
+              >
+                {isMinimized ? <Maximize2 className="w-3 h-3" /> : <Minimize2 className="w-3 h-3" />}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onClose}
+                className="h-6 w-6 p-0"
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+          </div>
+          {!isMinimized && (
+            <CardDescription className="text-xs">
+              Bounded graph expansion with progress tracking
+            </CardDescription>
+          )}
+        </CardHeader>
+        
+        {!isMinimized && (
+          <CardContent className="space-y-4">
+            {/* Settings Panel */}
+            {showSettings && (
+              <div className="space-y-3 p-3 bg-muted/30 rounded">
+                <div className="text-xs font-medium">Expansion Limits</div>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs">Max Depth</label>
+                    <Select 
+                      value={String(stats.maxDepth)} 
+                      onValueChange={(value) => handleSettingsChange('maxDepth', value)}
+                    >
+                      <SelectTrigger className="text-xs h-7">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1</SelectItem>
+                        <SelectItem value="2">2</SelectItem>
+                        <SelectItem value="3">3</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <label className="text-xs">Max Nodes</label>
+                    <Select 
+                      value={String(stats.maxNodesPerExpand)} 
+                      onValueChange={(value) => handleSettingsChange('maxNodes', value)}
+                    >
+                      <SelectTrigger className="text-xs h-7">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="50">50</SelectItem>
+                        <SelectItem value="100">100</SelectItem>
+                        <SelectItem value="200">200</SelectItem>
+                        <SelectItem value="500">500</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-xs">Max Edges</label>
+                  <Select 
+                    value={String(stats.maxEdgesPerExpand)} 
+                    onValueChange={(value) => handleSettingsChange('maxEdges', value)}
+                  >
+                    <SelectTrigger className="text-xs h-7">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="100">100</SelectItem>
+                      <SelectItem value="200">200</SelectItem>
+                      <SelectItem value="500">500</SelectItem>
+                      <SelectItem value="1000">1000</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
+            {/* Expansion Controls */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium">Selected Node</span>
+                {selectedNode && (
+                  <Badge variant="outline" className="text-xs">
+                    {selectedNode.label}
+                  </Badge>
+                )}
+              </div>
+              
+              <Button
+                onClick={handleExpand}
+                disabled={!selectedNode || stats.activeJobsCount >= 5}
+                className="w-full text-xs"
+                size="sm"
+              >
+                <Play className="w-3 h-3 mr-1" />
+                Expand from Node
+              </Button>
+              
+              {!selectedNode && (
+                <p className="text-xs text-muted-foreground text-center">
+                  Select a node to expand from
+                </p>
+              )}
+            </div>
+
+            {/* Active Jobs */}
+            {activeJobs.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-xs font-medium">Active Jobs ({activeJobs.length})</div>
+                
+                {activeJobs.map(job => (
+                  <div key={job.id} className="p-2 bg-muted/30 rounded space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {getJobStatusIcon(job.status)}
+                        <span className="text-xs font-medium">{job.type}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {job.status}
+                        </Badge>
+                      </div>
+                      
+                      {job.status === 'running' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleCancelJob(job.id)}
+                          className="h-5 w-5 p-0"
+                        >
+                          <Square className="w-2 h-2" />
+                        </Button>
+                      )}
+                    </div>
+                    
+                    {job.status === 'running' && (
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span>Progress</span>
+                          <span>{job.progress.current}/{job.progress.total}</span>
+                        </div>
+                        <Progress 
+                          value={(job.progress.current / job.progress.total) * 100} 
+                          className="h-1"
+                        />
+                      </div>
+                    )}
+                    
+                    {job.status === 'completed' && (
+                      <div className="text-xs text-muted-foreground">
+                        Added {job.results.nodes.length} nodes, {job.results.edges.length} edges
+                      </div>
+                    )}
+                    
+                    {job.status === 'error' && (
+                      <div className="text-xs text-red-500">
+                        Error: {job.error}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Statistics */}
+            <div className="pt-2 border-t">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-muted-foreground">Visited:</span>
+                  <span className="ml-1 font-medium">{stats.visitedNodesCount}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Jobs:</span>
+                  <span className="ml-1 font-medium">{stats.activeJobsCount}</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+    </div>
+  );
+};
+
+export default ExpansionControls;
+</file>
+
+<file path="graph.d.ts">
+export type Node = {
+  id: string;
+  label: string;
+  category: 'core_concept' | 'sub_concept' | 'thinker' | 'key_phrase';
+  importance: 1 | 2 | 3 | 4 | 5;
+  abstract?: string;
+  aliases?: string[];
+  tags?: string[];
+  status?: 'draft' | 'refine' | 'ready';
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type Edge = {
+  id: string;
+  source: string;
+  target: string;
+  relation: 'supports' | 'refutes' | 'derives' | 'contrasts' | 'illustrates' | 'mentions' | 'influences';
+  weight?: 1 | 2 | 3 | 4 | 5;
+  directed?: boolean;
+  evidence?: string;
+  notes?: string;
+};
+
+export type GraphState = {
+  nodes: Record<string, Node>;
+  edges: Record<string, Edge>;
+  seenNodeIds: Set<string>;
+  seenEdgeIds: Set<string>;
+  version: number;
+};
+</file>
+
+<file path="GraphControls.jsx">
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { 
+  BookOpen, 
+  Brain, 
+  Network, 
+  Lightbulb, 
+  Quote, 
+  Users, 
+  Eye, 
+  EyeOff,
+  Filter,
+  Shuffle,
+  Target
+} from 'lucide-react';
+
+const GraphControls = ({ 
+  onCategoryFilter, 
+  activeCategoryFilters, 
+  onRandomNode, 
+  onCenterGraph,
+  onToggleLabels,
+  showLabels 
+}) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const categories = [
+    { id: 'core', label: 'Core Concepts', icon: BookOpen, color: 'bg-purple-500' },
+    { id: 'sub-concept', label: 'Sub-Concepts', icon: Lightbulb, color: 'bg-purple-300' },
+    { id: 'thinker', label: 'Thinkers', icon: Users, color: 'bg-amber-500' },
+    { id: 'key-phrase', label: 'Key Phrases', icon: Quote, color: 'bg-emerald-500' }
+  ];
+
+  return (
+    <div className="absolute bottom-4 right-4 z-10 space-y-2">
+      {/* Advanced Controls */}
+      {isExpanded && (
+        <Card className="w-64 bg-card/90 backdrop-blur-sm animate-in slide-in-from-bottom-2">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Filter className="w-4 h-4" />
+              Advanced Controls
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Category Filters */}
+            <div>
+              <h4 className="text-xs font-medium mb-2 text-muted-foreground">Filter by Category</h4>
+              <div className="grid grid-cols-2 gap-1">
+                {categories.map((category) => {
+                  const Icon = category.icon;
+                  const isActive = activeCategoryFilters.includes(category.id);
+                  return (
+                    <Button
+                      key={category.id}
+                      size="sm"
+                      variant={isActive ? "default" : "outline"}
+                      onClick={() => onCategoryFilter(category.id)}
+                      className="text-xs h-8 justify-start"
+                    >
+                      <div className={`w-2 h-2 rounded-full ${category.color} mr-1`} />
+                      {category.label.split(' ')[0]}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Quick Actions */}
+            <div>
+              <h4 className="text-xs font-medium mb-2 text-muted-foreground">Quick Actions</h4>
+              <div className="space-y-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onToggleLabels}
+                  className="w-full justify-start text-xs"
+                >
+                  {showLabels ? <EyeOff className="w-3 h-3 mr-1" /> : <Eye className="w-3 h-3 mr-1" />}
+                  {showLabels ? 'Hide Labels' : 'Show Labels'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onRandomNode}
+                  className="w-full justify-start text-xs"
+                >
+                  <Shuffle className="w-3 h-3 mr-1" />
+                  Random Concept
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onCenterGraph}
+                  className="w-full justify-start text-xs"
+                >
+                  <Target className="w-3 h-3 mr-1" />
+                  Center Graph
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Toggle Button */}
+      <Card className="bg-card/90 backdrop-blur-sm">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full"
+        >
+          <Filter className="w-4 h-4 mr-1" />
+          {isExpanded ? 'Hide' : 'Controls'}
+        </Button>
+      </Card>
+    </div>
+  );
+};
+
+export default GraphControls;
+</file>
+
+<file path="graphData.js">
+// Graph data for Nihiltheism concepts
+export const graphData = {
+  nodes: [
+    // Core Concepts (Main Nodes)
+    {
+      id: "nihiltheism",
+      label: "Nihiltheism",
+      description: "The overarching philosophical framework exploring the inadequacies of finite frameworks in articulating the confounding nature of existence",
+      category: "core",
+      size: 20,
+      color: "#8B5CF6"
+    },
+    {
+      id: "nihilism-preface",
+      label: "Nihilism Preface",
+      description: "Foundational contemplation on the essence and existential implications of Nihilism",
+      category: "core",
+      size: 16,
+      color: "#A855F7"
+    },
+    {
+      id: "abyssal-experience",
+      label: "Abyssal Experience",
+      description: "The intersection between philosophical inquiry and direct, personal experience of Nihilism",
+      category: "core",
+      size: 16,
+      color: "#A855F7"
+    },
+    {
+      id: "uncanny-illusion",
+      label: "Uncanny Illusion of Naturalism",
+      description: "Critique of naturalism as an illusory framework that fails to capture existential reality",
+      category: "core",
+      size: 16,
+      color: "#A855F7"
+    },
+    {
+      id: "madness-nonexistence",
+      label: "Madness, Nonexistence, and the Other",
+      description: "Convergence of madness, nonexistence, and the Other through renunciation and suicide",
+      category: "core",
+      size: 16,
+      color: "#A855F7"
+    },
+    {
+      id: "infinite-nothingness",
+      label: "Infinite Nothingness",
+      description: "The profound experience of confronting the infinite void and its impact on identity",
+      category: "core",
+      size: 16,
+      color: "#A855F7"
+    },
+
+    // Sub-Concepts/Themes
+    {
+      id: "naturalistic-contemplation",
+      label: "Naturalistic Contemplation",
+      description: "Deep contemplation of existence through a purely naturalistic lens",
+      category: "sub-concept",
+      size: 12,
+      color: "#C084FC"
+    },
+    {
+      id: "profound-sadness",
+      label: "Profound Sadness",
+      description: "The inevitable melancholy that accompanies naturalistic contemplation",
+      category: "sub-concept",
+      size: 10,
+      color: "#C084FC"
+    },
+    {
+      id: "existential-dread",
+      label: "Existential Dread",
+      description: "The evil background that underlies our existence",
+      category: "sub-concept",
+      size: 12,
+      color: "#C084FC"
+    },
+    {
+      id: "nothingness",
+      label: "Nothingness",
+      description: "The void that underlies apparent order and meaning, revealing hidden meaninglessness",
+      category: "sub-concept",
+      size: 14,
+      color: "#C084FC"
+    },
+    {
+      id: "transcendent-intuition",
+      label: "Transcendent Intuition",
+      description: "Inner intuition that separates from the purely natural side of humanity",
+      category: "sub-concept",
+      size: 12,
+      color: "#C084FC"
+    },
+    {
+      id: "augmented-nihilism",
+      label: "Augmented Nihilism",
+      description: "Transcendent aspect of Nihilism, akin to mystical experiences",
+      category: "sub-concept",
+      size: 13,
+      color: "#C084FC"
+    },
+    {
+      id: "the-other",
+      label: "The Other",
+      description: "Something experienced within Augmented Nihilism, more real than the mundane world",
+      category: "sub-concept",
+      size: 13,
+      color: "#C084FC"
+    },
+    {
+      id: "suicide-rational-response",
+      label: "Suicide as Rational Response",
+      description: "Rational response to the irrationality of the world",
+      category: "sub-concept",
+      size: 11,
+      color: "#C084FC"
+    },
+    {
+      id: "renouncer",
+      label: "The Renouncer",
+      description: "One who turns away from the world toward transcendent intuition",
+      category: "sub-concept",
+      size: 11,
+      color: "#C084FC"
+    },
+
+    // Thinkers/Philosophers
+    {
+      id: "nietzsche",
+      label: "Nietzsche",
+      description: "Referenced for divine way of thinking and philosophical insights",
+      category: "thinker",
+      size: 10,
+      color: "#F59E0B"
+    },
+    {
+      id: "heisman",
+      label: "Mitchell Heisman",
+      description: "Case study of lived expression of Nihilism through suicide",
+      category: "thinker",
+      size: 10,
+      color: "#F59E0B"
+    },
+    {
+      id: "heidegger",
+      label: "Heidegger",
+      description: "Philosophy as preparation for death, strangeness of being through 'no-thing'",
+      category: "thinker",
+      size: 10,
+      color: "#F59E0B"
+    },
+    {
+      id: "cicero",
+      label: "Cicero",
+      description: "Referenced in context of philosophical preparation for death",
+      category: "thinker",
+      size: 8,
+      color: "#F59E0B"
+    },
+    {
+      id: "spong",
+      label: "Spong",
+      description: "Discussed in context of living in a godless world",
+      category: "thinker",
+      size: 8,
+      color: "#F59E0B"
+    },
+    {
+      id: "sartre",
+      label: "Sartre",
+      description: "Referenced regarding honesty of living in a godless world",
+      category: "thinker",
+      size: 8,
+      color: "#F59E0B"
+    },
+    {
+      id: "cioran",
+      label: "Cioran",
+      description: "Perception of void revealing universe where absence of meaning coincides with entrance into the All",
+      category: "thinker",
+      size: 9,
+      color: "#F59E0B"
+    },
+    {
+      id: "underhill",
+      label: "Underhill",
+      description: "Mystical experiences and encounter with transcendent nothingness",
+      category: "thinker",
+      size: 8,
+      color: "#F59E0B"
+    },
+    {
+      id: "tillich",
+      label: "Tillich",
+      description: "Encounter with transcendent nothingness and its emotional impact",
+      category: "thinker",
+      size: 8,
+      color: "#F59E0B"
+    },
+
+    // Key Phrases/Quotes
+    {
+      id: "goal-nihiltheism",
+      label: "Goal of Nihiltheism",
+      description: "Not to advocate for a specific belief, but to explore inadequacies of finite frameworks",
+      category: "key-phrase",
+      size: 6,
+      color: "#10B981"
+    },
+    {
+      id: "divine-thinking",
+      label: "Divine Way of Thinking",
+      description: "Nihilism as a divine way of thinking, transcending superficial layers",
+      category: "key-phrase",
+      size: 6,
+      color: "#10B981"
+    },
+    {
+      id: "existential-why",
+      label: "Existential Why?",
+      description: "The fundamental question prompted by encounter with nothingness",
+      category: "key-phrase",
+      size: 6,
+      color: "#10B981"
+    },
+    {
+      id: "material-nightmare",
+      label: "Material Nightmare",
+      description: "Naturalism as a nightmare from which one must awaken",
+      category: "key-phrase",
+      size: 6,
+      color: "#10B981"
+    },
+    {
+      id: "logic-of-life-vs-suicide",
+      label: "Logic of Life vs Suicide",
+      description: "No common language between those who experienced Nothingness and those who haven't",
+      category: "key-phrase",
+      size: 6,
+      color: "#10B981"
+    }
+  ],
+  links: [
+    // Central connections to Nihiltheism
+    { source: "nihiltheism", target: "nihilism-preface", relationship: "explores", strength: 3 },
+    { source: "nihiltheism", target: "abyssal-experience", relationship: "explores", strength: 3 },
+    { source: "nihiltheism", target: "uncanny-illusion", relationship: "explores", strength: 3 },
+    { source: "nihiltheism", target: "madness-nonexistence", relationship: "explores", strength: 3 },
+    { source: "nihiltheism", target: "infinite-nothingness", relationship: "explores", strength: 3 },
+
+    // Nihilism Preface connections
+    { source: "nihilism-preface", target: "naturalistic-contemplation", relationship: "explores", strength: 2 },
+    { source: "naturalistic-contemplation", target: "profound-sadness", relationship: "leads to", strength: 2 },
+    { source: "nihilism-preface", target: "existential-dread", relationship: "confronts", strength: 2 },
+    { source: "nihilism-preface", target: "nietzsche", relationship: "references", strength: 1 },
+    { source: "nietzsche", target: "divine-thinking", relationship: "discusses", strength: 1 },
+    { source: "nihilism-preface", target: "goal-nihiltheism", relationship: "establishes", strength: 2 },
+
+    // Abyssal Experience connections
+    { source: "abyssal-experience", target: "nothingness", relationship: "confronts", strength: 3 },
+    { source: "nothingness", target: "existential-why", relationship: "prompts", strength: 2 },
+    { source: "abyssal-experience", target: "heidegger", relationship: "references", strength: 1 },
+    { source: "abyssal-experience", target: "heisman", relationship: "references", strength: 1 },
+    { source: "abyssal-experience", target: "cicero", relationship: "references", strength: 1 },
+    { source: "heidegger", target: "nothingness", relationship: "discusses", strength: 1 },
+
+    // Uncanny Illusion connections
+    { source: "uncanny-illusion", target: "augmented-nihilism", relationship: "reveals", strength: 2 },
+    { source: "augmented-nihilism", target: "the-other", relationship: "encounters", strength: 2 },
+    { source: "uncanny-illusion", target: "material-nightmare", relationship: "critiques as", strength: 2 },
+    { source: "uncanny-illusion", target: "spong", relationship: "references", strength: 1 },
+    { source: "uncanny-illusion", target: "sartre", relationship: "references", strength: 1 },
+
+    // Madness, Nonexistence connections
+    { source: "madness-nonexistence", target: "suicide-rational-response", relationship: "explores", strength: 2 },
+    { source: "madness-nonexistence", target: "renouncer", relationship: "discusses", strength: 2 },
+    { source: "renouncer", target: "transcendent-intuition", relationship: "turns toward", strength: 2 },
+    { source: "madness-nonexistence", target: "heisman", relationship: "case study", strength: 2 },
+    { source: "madness-nonexistence", target: "logic-of-life-vs-suicide", relationship: "explores", strength: 2 },
+    { source: "madness-nonexistence", target: "nothingness", relationship: "confronts", strength: 2 },
+
+    // Infinite Nothingness connections
+    { source: "infinite-nothingness", target: "the-other", relationship: "encounters", strength: 2 },
+    { source: "infinite-nothingness", target: "cioran", relationship: "references", strength: 1 },
+    { source: "infinite-nothingness", target: "underhill", relationship: "references", strength: 1 },
+    { source: "infinite-nothingness", target: "tillich", relationship: "references", strength: 1 },
+    { source: "cioran", target: "nothingness", relationship: "discusses", strength: 1 },
+
+    // Cross-connections between concepts
+    { source: "augmented-nihilism", target: "transcendent-intuition", relationship: "involves", strength: 1 },
+    { source: "the-other", target: "transcendent-intuition", relationship: "accessed through", strength: 1 },
+    { source: "existential-dread", target: "nothingness", relationship: "reveals", strength: 2 },
+    { source: "profound-sadness", target: "existential-dread", relationship: "leads to", strength: 1 }
+  ]
+};
+</file>
+
+<file path="GraphStats.jsx">
+import React, { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { 
+  TrendingUp, 
+  Network, 
+  BookOpen, 
+  Users, 
+  Quote, 
+  Lightbulb,
+  ArrowRight,
+  Sparkles,
+  X,
+  Minimize2,
+  Maximize2
+} from 'lucide-react';
+
+const GraphStats = ({ graphData, selectedNode, onNodeSelect }) => {
+  const [isVisible, setIsVisible] = useState(true);
+  const [isMinimized, setIsMinimized] = useState(false);
+
+  if (!isVisible) return null;
+
+  const stats = {
+    totalNodes: graphData.nodes.length,
+    totalConnections: graphData.links.length,
+    coreNodes: graphData.nodes.filter(n => n.category === 'core').length,
+    subConcepts: graphData.nodes.filter(n => n.category === 'sub-concept').length,
+    thinkers: graphData.nodes.filter(n => n.category === 'thinker').length,
+    keyPhrases: graphData.nodes.filter(n => n.category === 'key-phrase').length
+  };
+
+  // Find most connected nodes
+  const nodeConnections = {};
+  graphData.links.forEach(link => {
+    const sourceId = link.source.id || link.source;
+    const targetId = link.target.id || link.target;
+    nodeConnections[sourceId] = (nodeConnections[sourceId] || 0) + 1;
+    nodeConnections[targetId] = (nodeConnections[targetId] || 0) + 1;
+  });
+
+  const mostConnected = Object.entries(nodeConnections)
+    .sort(([,a], [,b]) => b - a)
+    .slice(0, 3)
+    .map(([nodeId, connections]) => ({
+      node: graphData.nodes.find(n => n.id === nodeId),
+      connections
+    }));
+
+  const getCategoryIcon = (category) => {
+    switch (category) {
+      case 'core': return <BookOpen className="w-3 h-3" />;
+      case 'sub-concept': return <Lightbulb className="w-3 h-3" />;
+      case 'thinker': return <Users className="w-3 h-3" />;
+      case 'key-phrase': return <Quote className="w-3 h-3" />;
+      default: return <BookOpen className="w-3 h-3" />;
+    }
+  };
+
+  return (
+    <div className="absolute top-20 left-4 z-10 w-72">
+      <Card className="bg-card/90 backdrop-blur-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <TrendingUp className="w-4 h-4" />
+              Graph Analytics
+            </CardTitle>
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setIsMinimized(!isMinimized)}
+                className="h-6 w-6 p-0"
+              >
+                {isMinimized ? <Maximize2 className="w-3 h-3" /> : <Minimize2 className="w-3 h-3" />}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setIsVisible(false)}
+                className="h-6 w-6 p-0"
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+          </div>
+          {!isMinimized && (
+            <CardDescription className="text-xs">
+              Explore the philosophical network structure
+            </CardDescription>
+          )}
+        </CardHeader>
+        {!isMinimized && (
+          <CardContent className="space-y-4">
+            {/* Overview Stats */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="text-center p-2 bg-muted/50 rounded-lg">
+                <div className="text-lg font-bold text-purple-400">{stats.totalNodes}</div>
+                <div className="text-xs text-muted-foreground">Concepts</div>
+              </div>
+              <div className="text-center p-2 bg-muted/50 rounded-lg">
+                <div className="text-lg font-bold text-amber-400">{stats.totalConnections}</div>
+                <div className="text-xs text-muted-foreground">Connections</div>
+              </div>
+            </div>
+
+            {/* Category Breakdown */}
+            <div>
+              <h4 className="text-xs font-medium mb-2 text-muted-foreground">Category Distribution</h4>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-purple-500" />
+                    Core Concepts
+                  </div>
+                  <span>{stats.coreNodes}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-purple-300" />
+                    Sub-Concepts
+                  </div>
+                  <span>{stats.subConcepts}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-amber-500" />
+                    Thinkers
+                  </div>
+                  <span>{stats.thinkers}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                    Key Phrases
+                  </div>
+                  <span>{stats.keyPhrases}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Most Connected Nodes */}
+            <div>
+              <h4 className="text-xs font-medium mb-2 text-muted-foreground flex items-center gap-1">
+                <Network className="w-3 h-3" />
+                Most Connected
+              </h4>
+              <div className="space-y-1">
+                {mostConnected.map(({ node, connections }, index) => (
+                  <Button
+                    key={node.id}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onNodeSelect(node)}
+                    className="w-full justify-between text-xs h-8 px-2"
+                  >
+                    <div className="flex items-center gap-1 truncate">
+                      {getCategoryIcon(node.category)}
+                      <span className="truncate">{node.label}</span>
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      {connections}
+                    </Badge>
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Research Suggestions */}
+            <div className="bg-primary/5 p-3 rounded-lg">
+              <h4 className="text-xs font-medium mb-2 flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                Research Suggestions
+              </h4>
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <ArrowRight className="w-2 h-2" />
+                  Start with "Nihiltheism" for overview
+                </div>
+                <div className="flex items-center gap-1">
+                  <ArrowRight className="w-2 h-2" />
+                  Explore thinker connections
+                </div>
+                <div className="flex items-center gap-1">
+                  <ArrowRight className="w-2 h-2" />
+                  Compare core concepts
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+    </div>
+  );
+};
+
+export default GraphStats;
+</file>
+
+<file path="graphStore.js">
+import { graphData } from '../data/graphData.js';
+
+class GraphStore {
+  constructor() {
+    this.state = {
+      nodes: {},
+      edges: {},
+      seenNodeIds: new Set(),
+      seenEdgeIds: new Set(),
+      version: 0
+    };
+    
+    this.transactionQueue = [];
+    this.processedActions = new Set(); // For idempotency
+    this.listeners = new Set();
+    
+    // Initialize with existing data
+    this.initializeFromData(graphData);
+  }
+
+  initializeFromData(data) {
+    // Convert array format to record format and normalize
+    data.nodes.forEach(node => {
+      const normalizedNode = this.normalizeNode(node);
+      this.state.nodes[normalizedNode.id] = normalizedNode;
+      this.state.seenNodeIds.add(normalizedNode.id);
+    });
+
+    data.links.forEach(link => {
+      const normalizedEdge = this.normalizeEdge(link);
+      this.state.edges[normalizedEdge.id] = normalizedEdge;
+      this.state.seenEdgeIds.add(normalizedEdge.id);
+    });
+
+    this.state.version = 1;
+    this.notifyListeners();
+  }
+
+  normalizeNode(node) {
+    return {
+      id: node.id,
+      label: node.label,
+      category: this.normalizeCategoryName(node.category),
+      importance: node.importance || this.inferImportance(node),
+      abstract: node.description || node.abstract,
+      aliases: node.aliases || [],
+      tags: node.tags || [],
+      status: node.status || 'ready',
+      created_at: node.created_at || new Date().toISOString(),
+      updated_at: node.updated_at || new Date().toISOString()
+    };
+  }
+
+  normalizeEdge(link) {
+    const id = link.id || `${link.source}-${link.target}`;
+    return {
+      id,
+      source: link.source,
+      target: link.target,
+      relation: this.normalizeRelation(link.relationship || link.relation),
+      weight: link.weight || link.strength || 1,
+      directed: this.isDirectedRelation(link.relationship || link.relation),
+      evidence: link.evidence || '',
+      notes: link.notes || ''
+    };
+  }
+
+  normalizeCategoryName(category) {
+    const categoryMap = {
+      'core': 'core_concept',
+      'sub-concept': 'sub_concept',
+      'thinker': 'thinker',
+      'key-phrase': 'key_phrase'
+    };
+    return categoryMap[category] || category;
+  }
+
+  normalizeRelation(relation) {
+    const relationMap = {
+      'explores': 'illustrates',
+      'leads to': 'derives',
+      'confronts': 'contrasts',
+      'references': 'mentions',
+      'discusses': 'illustrates',
+      'establishes': 'supports',
+      'reveals': 'derives',
+      'prompts': 'derives',
+      'critiques as': 'refutes',
+      'encounters': 'illustrates',
+      'case study': 'illustrates',
+      'turns toward': 'derives',
+      'involves': 'supports',
+      'accessed through': 'derives'
+    };
+    return relationMap[relation] || 'mentions';
+  }
+
+  isDirectedRelation(relation) {
+    const directedRelations = ['influences', 'derives'];
+    return directedRelations.includes(this.normalizeRelation(relation));
+  }
+
+  inferImportance(node) {
+    // Infer importance based on category and connections
+    if (node.category === 'core') return 5;
+    if (node.category === 'sub-concept') return 3;
+    if (node.category === 'thinker') return 4;
+    if (node.category === 'key-phrase') return 2;
+    return 3;
+  }
+
+  // Transaction system for idempotent mutations
+  dispatch(action) {
+    const actionKey = `${action.type}-${action.idempotencyKey || JSON.stringify(action.payload)}`;
+    
+    // Check if action already processed (idempotency)
+    if (this.processedActions.has(actionKey)) {
+      console.log('Action already processed, skipping:', actionKey);
+      return this.state;
+    }
+
+    // Add to transaction queue
+    this.transactionQueue.push({ ...action, actionKey });
+    
+    // Process transaction
+    this.processTransaction(action, actionKey);
+    
+    return this.state;
+  }
+
+  processTransaction(action, actionKey) {
+    const prevVersion = this.state.version;
+    
+    try {
+      switch (action.type) {
+        case 'ADD_NODE':
+          this.addNode(action.payload);
+          break;
+        case 'UPDATE_NODE':
+          this.updateNode(action.payload);
+          break;
+        case 'DELETE_NODE':
+          this.deleteNode(action.payload);
+          break;
+        case 'ADD_EDGE':
+          this.addEdge(action.payload);
+          break;
+        case 'UPDATE_EDGE':
+          this.updateEdge(action.payload);
+          break;
+        case 'DELETE_EDGE':
+          this.deleteEdge(action.payload);
+          break;
+        default:
+          throw new Error(`Unknown action type: ${action.type}`);
+      }
+
+      // Mark action as processed
+      this.processedActions.add(actionKey);
+      
+      // Increment version exactly once
+      this.state.version = prevVersion + 1;
+      
+      // Notify listeners
+      this.notifyListeners();
+      
+    } catch (error) {
+      console.error('Transaction failed:', error);
+      // Rollback would go here if needed
+      throw error;
+    }
+  }
+
+  addNode(nodeData) {
+    const node = this.normalizeNode(nodeData);
+    
+    // Check for duplicates
+    if (this.state.seenNodeIds.has(node.id)) {
+      console.log('Node already exists:', node.id);
+      return;
+    }
+
+    this.state.nodes[node.id] = node;
+    this.state.seenNodeIds.add(node.id);
+  }
+
+  updateNode(nodeData) {
+    if (!this.state.nodes[nodeData.id]) {
+      throw new Error(`Node ${nodeData.id} not found`);
+    }
+
+    const updatedNode = {
+      ...this.state.nodes[nodeData.id],
+      ...this.normalizeNode(nodeData),
+      updated_at: new Date().toISOString()
+    };
+
+    this.state.nodes[nodeData.id] = updatedNode;
+  }
+
+  deleteNode(nodeId) {
+    if (!this.state.nodes[nodeId]) {
+      console.log('Node not found for deletion:', nodeId);
+      return;
+    }
+
+    // Remove node
+    delete this.state.nodes[nodeId];
+    this.state.seenNodeIds.delete(nodeId);
+
+    // Remove associated edges
+    Object.keys(this.state.edges).forEach(edgeId => {
+      const edge = this.state.edges[edgeId];
+      if (edge.source === nodeId || edge.target === nodeId) {
+        delete this.state.edges[edgeId];
+        this.state.seenEdgeIds.delete(edgeId);
+      }
+    });
+  }
+
+  addEdge(edgeData) {
+    const edge = this.normalizeEdge(edgeData);
+    
+    // Check for duplicates
+    if (this.state.seenEdgeIds.has(edge.id)) {
+      console.log('Edge already exists:', edge.id);
+      return;
+    }
+
+    // Validate source and target exist
+    if (!this.state.nodes[edge.source] || !this.state.nodes[edge.target]) {
+      throw new Error(`Invalid edge: source or target node not found`);
+    }
+
+    this.state.edges[edge.id] = edge;
+    this.state.seenEdgeIds.add(edge.id);
+  }
+
+  updateEdge(edgeData) {
+    if (!this.state.edges[edgeData.id]) {
+      throw new Error(`Edge ${edgeData.id} not found`);
+    }
+
+    const updatedEdge = {
+      ...this.state.edges[edgeData.id],
+      ...this.normalizeEdge(edgeData)
+    };
+
+    this.state.edges[edgeData.id] = updatedEdge;
+  }
+
+  deleteEdge(edgeId) {
+    if (!this.state.edges[edgeId]) {
+      console.log('Edge not found for deletion:', edgeId);
+      return;
+    }
+
+    delete this.state.edges[edgeId];
+    this.state.seenEdgeIds.delete(edgeId);
+  }
+
+  // Getters for accessing state
+  getState() {
+    return { ...this.state };
+  }
+
+  getNodes() {
+    return Object.values(this.state.nodes);
+  }
+
+  getEdges() {
+    return Object.values(this.state.edges);
+  }
+
+  getNode(id) {
+    return this.state.nodes[id];
+  }
+
+  getEdge(id) {
+    return this.state.edges[id];
+  }
+
+  // Convert to format expected by visualization library
+  toVisualizationFormat() {
+    return {
+      nodes: this.getNodes().map(node => ({
+        id: node.id,
+        label: node.label,
+        category: node.category,
+        importance: node.importance,
+        description: node.abstract,
+        size: this.calculateNodeSize(node),
+        color: this.getNodeColor(node.category)
+      })),
+      links: this.getEdges().map(edge => ({
+        source: edge.source,
+        target: edge.target,
+        relationship: edge.relation,
+        strength: edge.weight,
+        directed: edge.directed
+      }))
+    };
+  }
+
+  calculateNodeSize(node) {
+    return 8 + (node.importance * 2);
+  }
+
+  getNodeColor(category) {
+    const colors = {
+      'core_concept': '#8B5CF6',
+      'sub_concept': '#C084FC',
+      'thinker': '#F59E0B',
+      'key_phrase': '#10B981'
+    };
+    return colors[category] || '#6B7280';
+  }
+
+  // Listener system for reactive updates
+  subscribe(listener) {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  notifyListeners() {
+    this.listeners.forEach(listener => listener(this.state));
+  }
+
+  // Validation methods
+  validateState() {
+    const errors = [];
+
+    // Check for invalid relations
+    Object.values(this.state.edges).forEach(edge => {
+      const validRelations = ['supports', 'refutes', 'derives', 'contrasts', 'illustrates', 'mentions', 'influences'];
+      if (!validRelations.includes(edge.relation)) {
+        errors.push(`Invalid relation: ${edge.relation} in edge ${edge.id}`);
+      }
+    });
+
+    // Check for orphaned edges
+    Object.values(this.state.edges).forEach(edge => {
+      if (!this.state.nodes[edge.source]) {
+        errors.push(`Orphaned edge: source node ${edge.source} not found`);
+      }
+      if (!this.state.nodes[edge.target]) {
+        errors.push(`Orphaned edge: target node ${edge.target} not found`);
+      }
+    });
+
+    return errors;
+  }
+}
+
+// Create singleton instance
+export const graphStore = new GraphStore();
+export default graphStore;
+</file>
+
+<file path="index.html">
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nihiltheism Interactive Graph</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+</file>
+
+<file path="input.jsx">
+import React from 'react';
+
+const Input = ({ className = '', type = 'text', ...props }) => (
+  <input
+    type={type}
+    className={`flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+    {...props}
+  />
+);
+
+export { Input };
+</file>
+
+<file path="main.jsx">
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App.jsx'
+import './App.css'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)
+</file>
+
+<file path="main.py">
+import os
+import sys
+# DON'T CHANGE THIS !!!
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
+from flask import Flask, send_from_directory
+from flask_cors import CORS
+from src.models.user import db
+from src.routes.user import user_bp
+from src.routes.ai_suggestions import ai_bp
+
+app = Flask(__name__, static_folder='../static')
+app.config['SECRET_KEY'] = 'asdf#FGSgvasgf$5$WGT'
+
+# Enable CORS for all routes
+CORS(app)
+
+app.register_blueprint(user_bp, url_prefix='/api')
+app.register_blueprint(ai_bp, url_prefix='/api')
+
+# uncomment if you need to use database
+app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(os.path.dirname(__file__), 'database', 'app.db')}"
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db.init_app(app)
+with app.app_context():
+    db.create_all()
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    static_folder_path = app.static_folder
+    if static_folder_path is None:
+            return "Static folder not configured", 404
+
+    if path != "" and os.path.exists(os.path.join(static_folder_path, path)):
+        return send_from_directory(static_folder_path, path)
+    else:
+        index_path = os.path.join(static_folder_path, 'index.html')
+        if os.path.exists(index_path):
+            return send_from_directory(static_folder_path, 'index.html')
+        else:
+            return "index.html not found", 404
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
+</file>
+
+<file path="NihiltheismGraph.jsx">
+import React, { useRef, useEffect, useState, useCallback } from 'react';
+import ForceGraph2D from 'react-force-graph-2d';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Search, ZoomIn, ZoomOut, RotateCcw, Info, Play, Pause, X, Minimize2 } from 'lucide-react';
+import graphStore from '../store/graphStore';
+import renderReconciler from '../store/renderReconciler';
+
+const NihiltheismGraph = ({
+  onNodeClick,
+  selectedNode,
+  categoryFilters = [],
+  showLabels = true,
+  onRandomNode,
+  onCenterGraph,
+  onGraphDataUpdate // New prop to notify parent of graph data changes
+}) => {
+  const fgRef = useRef();
+  const [graphData, setGraphData] = useState(graphStore.toVisualizationFormat());
+  const [searchTerm, setSearchTerm] = useState('');
+  const [highlightNodes, setHighlightNodes] = useState(new Set());
+  const [highlightLinks, setHighlightLinks] = useState(new Set());
+  const [hoverNode, setHoverNode] = useState(null);
+  const [isAnimating, setIsAnimating] = useState(true);
+  const [currentZoom, setCurrentZoom] = useState(1);
+  const [reconcileError, setReconcileError] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = graphStore.subscribe(async newState => {
+      try {
+        // Perform render reconciliation
+        const reconcileResult = await renderReconciler.reconcileWithRenderer(newState, fgRef);
+        
+        if (reconcileResult.success) {
+          setGraphData(graphStore.toVisualizationFormat());
+          setReconcileError(null);
+          
+          if (onGraphDataUpdate) {
+            onGraphDataUpdate(newState.nodes, newState.edges);
+          }
+        } else {
+          setReconcileError('Render reconciliation failed');
+        }
+      } catch (error) {
+        console.error('Reconciliation error:', error);
+        setReconcileError(error.message);
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [onGraphDataUpdate]);
+
+  // Filter data based on category filters
+  const filteredData = {
+    nodes: categoryFilters.length > 0
+      ? graphData.nodes.filter(node => categoryFilters.includes(node.category))
+      : graphData.nodes,
+    links: categoryFilters.length > 0
+      ? graphData.links.filter(link => {
+          const sourceNode = graphData.nodes.find(n => n.id === (link.source.id || link.source));
+          const targetNode = graphData.nodes.find(n => n.id === (link.target.id || link.target));
+          return categoryFilters.includes(sourceNode?.category) && categoryFilters.includes(targetNode?.category);
+        })
+      : graphData.links
+  };
+
+  // Search functionality
+  useEffect(() => {
+    if (searchTerm) {
+      const lowerSearchTerm = searchTerm.toLowerCase();
+      const matchingNodes = filteredData.nodes.filter(node =>
+        node.label.toLowerCase().includes(lowerSearchTerm) ||
+        (node.abstract && node.abstract.toLowerCase().includes(lowerSearchTerm)) ||
+        (node.aliases && node.aliases.some(alias => alias.toLowerCase().includes(lowerSearchTerm)))
+      );
+
+      const nodeIds = new Set(matchingNodes.map(node => node.id));
+      const linkIds = new Set();
+
+      filteredData.links.forEach(link => {
+        if (nodeIds.has(link.source.id || link.source) || nodeIds.has(link.target.id || link.target)) {
+          linkIds.add(link);
+        }
+      });
+
+      setHighlightNodes(nodeIds);
+      setHighlightLinks(linkIds);
+    } else {
+      setHighlightNodes(new Set());
+      setHighlightLinks(new Set());
+    }
+  }, [searchTerm, filteredData]);
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartTime, setDragStartTime] = useState(0);
+  const [dragThreshold] = useState(200); // 200ms threshold for drag vs click
+  const [dragStartPosition, setDragStartPosition] = useState({ x: 0, y: 0 });
+  const [dragDistanceThreshold] = useState(5); // 5px movement threshold
+
+  const handleNodeClick = useCallback((node, event) => {
+    // Only trigger click if we're not dragging
+    if (!isDragging) {
+      onNodeClick(node);
+    }
+  }, [isDragging, onNodeClick]);
+
+  const handleNodeDragStart = useCallback((node, event) => {
+    setDragStartTime(Date.now());
+    setDragStartPosition({ x: event.x || 0, y: event.y || 0 });
+    setIsDragging(false);
+  }, []);
+
+  const handleNodeDrag = useCallback((node, event) => {
+    const currentTime = Date.now();
+    const timeSinceDragStart = currentTime - dragStartTime;
+    
+    // Calculate distance moved
+    const deltaX = (event.x || 0) - dragStartPosition.x;
+    const deltaY = (event.y || 0) - dragStartPosition.y;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    
+    // Mark as dragging if time or distance threshold exceeded
+    if (timeSinceDragStart > dragThreshold || distance > dragDistanceThreshold) {
+      setIsDragging(true);
+    }
+  }, [dragStartTime, dragStartPosition, dragThreshold, dragDistanceThreshold]);
+
+  const handleNodeDragEnd = useCallback((node) => {
+    // Reset dragging state after a short delay to prevent accidental clicks
+    setTimeout(() => {
+      setIsDragging(false);
+      setDragStartTime(0);
+      setDragStartPosition({ x: 0, y: 0 });
+    }, 100);
+  }, []);
+
+  const handleNodeHover = useCallback((node) => {
+    setHoverNode(node);
+    if (node) {
+      const connectedNodes = new Set([node.id]);
+      const connectedLinks = new Set();
+
+      graphData.links.forEach(link => {
+        const sourceId = link.source.id || link.source;
+        const targetId = link.target.id || link.target;
+
+        if (sourceId === node.id || targetId === node.id) {
+          connectedLinks.add(link);
+          connectedNodes.add(sourceId);
+          connectedNodes.add(targetId);
+        }
+      });
+
+      setHighlightNodes(connectedNodes);
+      setHighlightLinks(connectedLinks);
+    } else {
+      setHighlightNodes(new Set());
+      setHighlightLinks(new Set());
+    }
+  }, [graphData]);
+
+  const paintNode = useCallback((node, ctx, globalScale) => {
+    const isHighlighted = highlightNodes.has(node.id);
+    const isSelected = selectedNode && selectedNode.id === node.id;
+    const isHovered = hoverNode && hoverNode.id === node.id;
+
+    // Determine if label should be shown based on importance, zoom, and selection
+    const showNodeLabel = showLabels && (
+      node.importance >= 4 || // Always show for importance 4 and 5
+      globalScale * node.size > 8 || // Show if zoomed in enough
+      isHighlighted ||
+      isSelected ||
+      isHovered
+    );
+
+    let nodeColor = node.color;
+    let strokeColor = '#1f2937';
+    let strokeWidth = 1;
+
+    if (isHighlighted) {
+      strokeColor = '#fbbf24'; // Amber for highlight
+      strokeWidth = 3;
+    }
+    if (isSelected) {
+      strokeColor = '#ef4444'; // Red for selected
+      strokeWidth = 4;
+    }
+
+    // Draw node circle
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, node.size, 0, 2 * Math.PI, false);
+    ctx.fillStyle = nodeColor;
+    ctx.fill();
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = strokeWidth;
+    ctx.stroke();
+
+    if (showNodeLabel) {
+      const label = node.label;
+      const fontSize = Math.max(8, node.size / 2);
+      ctx.font = `${fontSize}px Inter, sans-serif`;
+
+      const textWidth = ctx.measureText(label).width;
+      const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.2);
+
+      // Smart label positioning to avoid collisions
+      let labelX = node.x;
+      let labelY = node.y;
+      
+      // Check for nearby nodes and adjust label position
+      const nearbyNodes = filteredData.nodes.filter(otherNode => {
+        if (otherNode.id === node.id) return false;
+        const distance = Math.sqrt(
+          Math.pow(otherNode.x - node.x, 2) + Math.pow(otherNode.y - node.y, 2)
+        );
+        return distance < 80; // Within 80px
+      });
+
+      if (nearbyNodes.length > 0) {
+        // Find best position to avoid collisions
+        const positions = [
+          { x: node.x, y: node.y - node.size - fontSize }, // Top
+          { x: node.x, y: node.y + node.size + fontSize }, // Bottom
+          { x: node.x - textWidth/2 - node.size, y: node.y }, // Left
+          { x: node.x + textWidth/2 + node.size, y: node.y }, // Right
+        ];
+
+        let bestPosition = positions[0];
+        let minCollisions = Infinity;
+
+        positions.forEach(pos => {
+          let collisions = 0;
+          nearbyNodes.forEach(nearbyNode => {
+            const distance = Math.sqrt(
+              Math.pow(nearbyNode.x - pos.x, 2) + Math.pow(nearbyNode.y - pos.y, 2)
+            );
+            if (distance < 40) collisions++;
+          });
+          
+          if (collisions < minCollisions) {
+            minCollisions = collisions;
+            bestPosition = pos;
+          }
+        });
+
+        labelX = bestPosition.x;
+        labelY = bestPosition.y;
+      }
+
+      // Draw background for label to improve readability
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      ctx.fillRect(labelX - bckgDimensions[0] / 2, labelY - bckgDimensions[1] / 2, ...bckgDimensions);
+
+      // Draw label text
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(label, labelX, labelY);
+    }
+  }, [highlightNodes, selectedNode, hoverNode, showLabels, filteredData.nodes]);
+
+  const paintLink = useCallback((link, ctx, globalScale) => {
+    const start = link.source;
+    const end = link.target;
+
+    if (typeof start !== 'object' || typeof end !== 'object') return;
+
+    let linkColor = '#4b5563';
+    let linkWidth = 1;
+    let lineDash = [];
+
+    if (highlightLinks.has(link)) {
+      linkColor = '#fbbf24';
+      linkWidth = 3;
+    }
+
+    // Apply edge styling based on relation type
+    switch (link.relationship) {
+      case 'refutes':
+        lineDash = [5, 5]; // Dashed
+        break;
+      case 'contrasts':
+        lineDash = [1, 2]; // Dotted
+        break;
+      default:
+        lineDash = []; // Solid
+        break;
+    }
+
+    ctx.strokeStyle = linkColor;
+    ctx.lineWidth = linkWidth;
+    ctx.setLineDash(lineDash);
+    ctx.beginPath();
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(end.x, end.y);
+    ctx.stroke();
+    ctx.setLineDash([]); // Reset line dash for other drawings
+
+    // Draw arrowhead if directed
+    if (link.directed) {
+      const arrowLength = 6;
+      const arrowWidth = 4;
+      const angle = Math.atan2(end.y - start.y, end.x - start.x);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.translate(end.x, end.y);
+      ctx.rotate(angle);
+      ctx.moveTo(-arrowLength, arrowWidth / 2);
+      ctx.lineTo(0, 0);
+      ctx.lineTo(-arrowLength, -arrowWidth / 2);
+      ctx.fillStyle = linkColor;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Draw relationship label on hover (only if zoomed in enough)
+    if (hoverNode && (start.id === hoverNode.id || end.id === hoverNode.id) && globalScale > 1) {
+      const midX = (start.x + end.x) / 2;
+      const midY = (start.y + end.y) / 2;
+
+      ctx.font = '10px Inter, sans-serif';
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      const textWidth = ctx.measureText(link.relationship).width;
+      ctx.fillRect(midX - textWidth / 2 - 2, midY - 6, textWidth + 4, 12);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.fillText(link.relationship, midX, midY);
+    }
+  }, [highlightLinks, hoverNode]);
+
+  const zoomIn = () => fgRef.current?.zoom(fgRef.current.zoom() * 1.5, 400);
+  const zoomOut = () => fgRef.current?.zoom(fgRef.current.zoom() / 1.5, 400);
+  const resetView = () => fgRef.current?.zoomToFit(400);
+  const toggleAnimation = () => {
+    if (isAnimating) {
+      fgRef.current?.pauseAnimation();
+    } else {
+      fgRef.current?.resumeAnimation();
+    }
+    setIsAnimating(!isAnimating);
+  };
+
+  const handleRandomNode = () => {
+    const randomNode = filteredData.nodes[Math.floor(Math.random() * filteredData.nodes.length)];
+    onNodeClick(randomNode);
+    if (onRandomNode) onRandomNode(randomNode);
+  };
+
+  const handleCenterGraph = () => {
+    resetView();
+    if (onCenterGraph) onCenterGraph();
+  };
+
+  const handleZoom = useCallback(zoom => {
+    setCurrentZoom(zoom);
+  }, []);
+
+  return (
+    <div className="w-full h-full relative">
+      {/* Reconciliation Error Banner */}
+      {reconcileError && (
+        <div className="absolute top-0 left-0 right-0 z-20 bg-red-500/90 text-white p-2 text-center text-sm">
+          Render mismatch; retried: {reconcileError}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setReconcileError(null)}
+            className="ml-2 h-5 w-5 p-0 text-white hover:bg-red-600"
+          >
+            <X className="w-3 h-3" />
+          </Button>
+        </div>
+      )}
+
+      {/* Controls */}
+      <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
+        <Card className="p-3">
+          <div className="flex items-center gap-2">
+            <Search className="w-4 h-4" />
+            <Input
+              placeholder="Search concepts..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-48"
+            />
+          </div>
+        </Card>
+
+        <Card className="p-2">
+          <div className="flex gap-1">
+            <Button size="sm" variant="outline" onClick={zoomIn}>
+              <ZoomIn className="w-4 h-4" />
+            </Button>
+            <Button size="sm" variant="outline" onClick={zoomOut}>
+              <ZoomOut className="w-4 h-4" />
+            </Button>
+            <Button size="sm" variant="outline" onClick={resetView}>
+              <RotateCcw className="w-4 h-4" />
+            </Button>
+            <Button size="sm" variant="outline" onClick={toggleAnimation}>
+              {isAnimating ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+            </Button>
+          </div>
+        </Card>
+      </div>
+
+      {/* Legend */}
+      <div className="absolute top-4 right-4 z-10">
+        <Card className="p-3">
+          <CardHeader className="p-0 pb-2">
+            <CardTitle className="text-sm flex items-center gap-1">
+              <Info className="w-4 h-4" />
+              Legend
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+              <span className="text-xs">Core Concepts</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-purple-300"></div>
+              <span className="text-xs">Sub-Concepts</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+              <span className="text-xs">Thinkers</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+              <span className="text-xs">Key Phrases</span>
+            </div>
+            {categoryFilters.length > 0 && (
+              <div className="pt-1 border-t">
+                <Badge variant="secondary" className="text-xs">
+                  Filtered: {filteredData.nodes.length} nodes
+                </Badge>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Graph */}
+      <ForceGraph2D
+        ref={fgRef}
+        graphData={filteredData}
+        nodeCanvasObject={paintNode}
+        linkCanvasObject={paintLink}
+        onNodeClick={handleNodeClick}
+        onNodeDragStart={handleNodeDragStart}
+        onNodeDrag={handleNodeDrag}
+        onNodeDragEnd={handleNodeDragEnd}
+        onNodeHover={handleNodeHover}
+        onZoom={handleZoom}
+        nodePointerAreaPaint={(node, color, ctx) => {
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, node.size + 2, 0, 2 * Math.PI, false);
+          ctx.fill();
+        }}
+        linkDirectionalParticles={isAnimating ? 2 : 0}
+        linkDirectionalParticleSpeed={0.005}
+        linkDirectionalParticleWidth={2}
+        d3AlphaDecay={0.02}
+        d3VelocityDecay={0.3}
+        cooldownTicks={100}
+        backgroundColor="#0f172a"
+        width={window.innerWidth}
+        height={window.innerHeight}
+        enableNodeDrag={true}
+      />
+    </div>
+  );
+};
+
+export default NihiltheismGraph;
+</file>
+
+<file path="NodeDetailPanel.jsx">
+import React from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { X, BookOpen, Users, Quote, Lightbulb } from 'lucide-react';
+
+const NodeDetailPanel = ({ node, onClose, graphData }) => {
+  if (!node) return null;
+
+  const getConnectedNodes = () => {
+    const connections = [];
+    graphData.links.forEach(link => {
+      const sourceId = link.source.id || link.source;
+      const targetId = link.target.id || link.target;
+      
+      if (sourceId === node.id) {
+        const targetNode = graphData.nodes.find(n => n.id === targetId);
+        if (targetNode) {
+          connections.push({ node: targetNode, relationship: link.relationship, direction: 'outgoing' });
+        }
+      } else if (targetId === node.id) {
+        const sourceNode = graphData.nodes.find(n => n.id === sourceId);
+        if (sourceNode) {
+          connections.push({ node: sourceNode, relationship: link.relationship, direction: 'incoming' });
+        }
+      }
+    });
+    return connections;
+  };
+
+  const getCategoryIcon = (category) => {
+    switch (category) {
+      case 'core':
+        return <BookOpen className="w-4 h-4" />;
+      case 'sub-concept':
+        return <Lightbulb className="w-4 h-4" />;
+      case 'thinker':
+        return <Users className="w-4 h-4" />;
+      case 'key-phrase':
+        return <Quote className="w-4 h-4" />;
+      default:
+        return <BookOpen className="w-4 h-4" />;
+    }
+  };
+
+  const getCategoryLabel = (category) => {
+    switch (category) {
+      case 'core':
+        return 'Core Concept';
+      case 'sub-concept':
+        return 'Sub-Concept';
+      case 'thinker':
+        return 'Philosopher/Thinker';
+      case 'key-phrase':
+        return 'Key Phrase';
+      default:
+        return 'Concept';
+    }
+  };
+
+  const connections = getConnectedNodes();
+
+  return (
+    <div className="fixed inset-y-0 right-0 w-96 bg-background border-l border-border shadow-lg z-20 overflow-hidden">
+      <Card className="h-full rounded-none border-0">
+        <CardHeader className="border-b">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                {getCategoryIcon(node.category)}
+                <Badge variant="secondary">{getCategoryLabel(node.category)}</Badge>
+              </div>
+              <CardTitle className="text-lg leading-tight">{node.label}</CardTitle>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1 hover:bg-muted rounded-sm transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </CardHeader>
+        
+        <ScrollArea className="flex-1">
+          <CardContent className="p-6 space-y-6">
+            {/* Description */}
+            <div>
+              <h3 className="font-semibold mb-2">Description</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {node.description}
+              </p>
+            </div>
+
+            {/* Connections */}
+            {connections.length > 0 && (
+              <div>
+                <h3 className="font-semibold mb-3">Connections ({connections.length})</h3>
+                <div className="space-y-3">
+                  {connections.map((connection, index) => (
+                    <div key={index} className="p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-start gap-2 mb-1">
+                        {getCategoryIcon(connection.node.category)}
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">{connection.node.label}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {connection.direction === 'outgoing' ? '→' : '←'} {connection.relationship}
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                        {connection.node.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Research Insights */}
+            <div className="bg-primary/5 p-4 rounded-lg">
+              <h3 className="font-semibold mb-2 flex items-center gap-2">
+                <Lightbulb className="w-4 h-4" />
+                Research Insights
+              </h3>
+              <div className="text-sm text-muted-foreground space-y-2">
+                <p>
+                  This concept is connected to {connections.length} other elements in the Nihiltheism framework.
+                </p>
+                {node.category === 'core' && (
+                  <p>
+                    As a core concept, this represents a fundamental pillar of Nihiltheistic thought and serves as a central node for understanding related philosophical themes.
+                  </p>
+                )}
+                {node.category === 'thinker' && (
+                  <p>
+                    This philosopher's work provides crucial context and intellectual foundation for understanding Nihiltheistic concepts.
+                  </p>
+                )}
+                {connections.some(c => c.node.category === 'thinker') && (
+                  <p>
+                    Consider exploring the philosophical works of connected thinkers to deepen your understanding of this concept.
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </ScrollArea>
+      </Card>
+    </div>
+  );
+};
+
+export default NodeDetailPanel;
+</file>
+
+<file path="NodeEditor.jsx">
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { 
+  Plus, 
+  X, 
+  Minimize2, 
+  Maximize2,
+  Link,
+  BookOpen,
+  Users,
+  Quote,
+  Lightbulb,
+  Save
+} from 'lucide-react';
+import graphStore from '../store/graphStore';
+
+const NodeEditor = ({ onClose }) => {
+  const [isVisible, setIsVisible] = useState(true);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [activeTab, setActiveTab] = useState('node'); // 'node' or 'connection'
+  const [graphState, setGraphState] = useState(graphStore.getState());
+
+  // Node form state
+  const [nodeForm, setNodeForm] = useState({
+    label: '',
+    abstract: '',
+    category: 'sub_concept',
+    importance: '3'
+  });
+  
+  // Connection form state
+  const [connectionForm, setConnectionForm] = useState({
+    sourceId: '',
+    targetId: '',
+    relation: 'mentions',
+    directed: 'false'
+  });
+
+  useEffect(() => {
+    const unsubscribe = graphStore.subscribe(newState => {
+      setGraphState(newState);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  if (!isVisible) return null;
+
+  const categories = [
+    { id: 'core_concept', label: 'Core Concept', icon: BookOpen, color: 'bg-purple-500' },
+    { id: 'sub_concept', label: 'Sub-Concept', icon: Lightbulb, color: 'bg-purple-300' },
+    { id: 'thinker', label: 'Thinker', icon: Users, color: 'bg-amber-500' },
+    { id: 'key_phrase', label: 'Key Phrase', icon: Quote, color: 'bg-emerald-500' }
+  ];
+
+  const relations = [
+    'supports', 'refutes', 'derives', 'contrasts', 'illustrates', 'mentions', 'influences'
+  ];
+
+  const handleAddNode = () => {
+    if (!nodeForm.label.trim()) return;
+    
+    const newNode = {
+      id: nodeForm.label.trim().toLowerCase().replace(/\s+/g, '-'), // Generate ID from label
+      label: nodeForm.label.trim(),
+      abstract: nodeForm.abstract.trim(),
+      category: nodeForm.category,
+      importance: parseInt(nodeForm.importance),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    graphStore.dispatch({
+      type: 'ADD_NODE',
+      payload: newNode,
+      idempotencyKey: `add-node-${newNode.id}`
+    });
+    setNodeForm({ label: '', abstract: '', category: 'sub_concept', importance: '3' });
+  };
+
+  const handleAddConnection = () => {
+    if (!connectionForm.sourceId || !connectionForm.targetId || connectionForm.sourceId === connectionForm.targetId) return;
+    
+    const newConnection = {
+      id: `${connectionForm.sourceId}-${connectionForm.targetId}-${connectionForm.relation}`,
+      source: connectionForm.sourceId,
+      target: connectionForm.targetId,
+      relation: connectionForm.relation,
+      directed: connectionForm.directed === 'true',
+      weight: 1 // Default weight
+    };
+    
+    graphStore.dispatch({
+      type: 'ADD_EDGE',
+      payload: newConnection,
+      idempotencyKey: `add-edge-${newConnection.id}`
+    });
+    setConnectionForm({ sourceId: '', targetId: '', relation: 'mentions', directed: 'false' });
+  };
+
+  const nodesArray = Object.values(graphState.nodes);
+
+  return (
+    <div className="absolute top-4 right-80 z-10 w-80">
+      <Card className="bg-card/90 backdrop-blur-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              Graph Editor
+            </CardTitle>
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setIsMinimized(!isMinimized)}
+                className="h-6 w-6 p-0"
+              >
+                {isMinimized ? <Maximize2 className="w-3 h-3" /> : <Minimize2 className="w-3 h-3" />}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onClose}
+                className="h-6 w-6 p-0"
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+          </div>
+          {!isMinimized && (
+            <CardDescription className="text-xs">
+              Add new concepts and connections to the graph
+            </CardDescription>
+          )}
+        </CardHeader>
+        
+        {!isMinimized && (
+          <CardContent className="space-y-4">
+            {/* Tab Selection */}
+            <div className="flex gap-1 p-1 bg-muted rounded-lg">
+              <Button
+                size="sm"
+                variant={activeTab === 'node' ? 'default' : 'ghost'}
+                onClick={() => setActiveTab('node')}
+                className="flex-1 text-xs"
+              >
+                <BookOpen className="w-3 h-3 mr-1" />
+                Add Node
+              </Button>
+              <Button
+                size="sm"
+                variant={activeTab === 'connection' ? 'default' : 'ghost'}
+                onClick={() => setActiveTab('connection')}
+                className="flex-1 text-xs"
+              >
+                <Link className="w-3 h-3 mr-1" />
+                Add Connection
+              </Button>
+            </div>
+
+            {/* Node Form */}
+            {activeTab === 'node' && (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Concept Label</label>
+                  <Input
+                    placeholder="e.g., Existential Anxiety"
+                    value={nodeForm.label}
+                    onChange={(e) => setNodeForm(prev => ({ ...prev, label: e.target.value }))}
+                    className="text-xs"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Abstract</label>
+                  <Textarea
+                    placeholder="Describe this philosophical concept..."
+                    value={nodeForm.abstract}
+                    onChange={(e) => setNodeForm(prev => ({ ...prev, abstract: e.target.value }))}
+                    className="text-xs min-h-[60px]"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Category</label>
+                  <Select value={nodeForm.category} onValueChange={(value) => setNodeForm(prev => ({ ...prev, category: value }))}>
+                    <SelectTrigger className="text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map(category => {
+                        const Icon = category.icon;
+                        return (
+                          <SelectItem key={category.id} value={category.id} className="text-xs">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full ${category.color}`} />
+                              <Icon className="w-3 h-3" />
+                              {category.label}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Importance (1-5)</label>
+                  <Select value={nodeForm.importance} onValueChange={(value) => setNodeForm(prev => ({ ...prev, importance: value }))}>
+                    <SelectTrigger className="text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 5].map(imp => (
+                        <SelectItem key={imp} value={String(imp)} className="text-xs">
+                          {imp}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <Button 
+                  onClick={handleAddNode}
+                  disabled={!nodeForm.label.trim()}
+                  className="w-full text-xs"
+                  size="sm"
+                >
+                  <Save className="w-3 h-3 mr-1" />
+                  Add Node
+                </Button>
+              </div>
+            )}
+
+            {/* Connection Form */}
+            {activeTab === 'connection' && (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium mb-1 block">From Concept</label>
+                  <Select value={connectionForm.sourceId} onValueChange={(value) => setConnectionForm(prev => ({ ...prev, sourceId: value }))}>
+                    <SelectTrigger className="text-xs">
+                      <SelectValue placeholder="Select source concept" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {nodesArray.map(node => (
+                        <SelectItem key={node.id} value={node.id} className="text-xs">
+                          {node.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Relationship</label>
+                  <Select value={connectionForm.relation} onValueChange={(value) => setConnectionForm(prev => ({ ...prev, relation: value }))}>
+                    <SelectTrigger className="text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {relations.map(rel => (
+                        <SelectItem key={rel} value={rel} className="text-xs">
+                          {rel}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Directed?</label>
+                  <Select value={connectionForm.directed} onValueChange={(value) => setConnectionForm(prev => ({ ...prev, directed: value }))}>
+                    <SelectTrigger className="text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="true" className="text-xs">Yes</SelectItem>
+                      <SelectItem value="false" className="text-xs">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <label className="text-xs font-medium mb-1 block">To Concept</label>
+                  <Select value={connectionForm.targetId} onValueChange={(value) => setConnectionForm(prev => ({ ...prev, targetId: value }))}>
+                    <SelectTrigger className="text-xs">
+                      <SelectValue placeholder="Select target concept" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {nodesArray.map(node => (
+                        <SelectItem key={node.id} value={node.id} className="text-xs">
+                          {node.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <Button 
+                  onClick={handleAddConnection}
+                  disabled={!connectionForm.sourceId || !connectionForm.targetId || connectionForm.sourceId === connectionForm.targetId}
+                  className="w-full text-xs"
+                  size="sm"
+                >
+                  <Link className="w-3 h-3 mr-1" />
+                  Add Connection
+                </Button>
+              </div>
+            )}
+            
+            {/* Quick Stats */}
+            <div className="pt-2 border-t">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{nodesArray.length} nodes</span>
+                <span>{Object.values(graphState.edges).length} connections</span>
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+    </div>
+  );
+};
+
+export default NodeEditor;
+</file>
+
+<file path="package.json">
+{
+  "name": "nihiltheism-graph",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.1.0",
+    "d3": "^7.9.0",
+    "lucide-react": "^0.547.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-force-graph-2d": "^1.29.0",
+    "vite": "^7.1.12"
+  }
+}
+</file>
+
+<file path="progress.jsx">
+import React from 'react';
+
+const Progress = ({ value = 0, className = '' }) => (
+  <div className={`relative h-4 w-full overflow-hidden rounded-full bg-gray-200 ${className}`}>
+    <div
+      className="h-full bg-blue-600 transition-all duration-300 ease-in-out"
+      style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+    />
+  </div>
+);
+
+export { Progress };
+</file>
+
+<file path="renderReconciler.js">
+class RenderReconciler {
+  constructor() {
+    this.lastRenderedState = null;
+    this.pendingUpdates = new Set();
+    this.reconciliationInProgress = false;
+    this.errorCount = 0;
+    this.maxRetries = 3;
+  }
+
+  // Two-phase commit: Apply to store, then reconcile to renderer
+  async reconcileWithRenderer(graphState, rendererRef, forceReconcile = false) {
+    if (this.reconciliationInProgress && !forceReconcile) {
+      console.log('Reconciliation already in progress, skipping');
+      return { success: true, skipped: true };
+    }
+
+    this.reconciliationInProgress = true;
+
+    try {
+      // Phase 1: Compute diff between current state and last rendered state
+      const diff = this.computeStateDiff(this.lastRenderedState, graphState);
+      
+      if (diff.isEmpty && !forceReconcile) {
+        this.reconciliationInProgress = false;
+        return { success: true, noChanges: true };
+      }
+
+      // Phase 2: Apply diff to renderer
+      const reconcileResult = await this.applyDiffToRenderer(diff, rendererRef);
+      
+      if (!reconcileResult.success) {
+        throw new Error(`Render reconciliation failed: ${reconcileResult.error}`);
+      }
+
+      // Phase 3: Verify rendered state matches store
+      const verificationResult = await this.verifyRenderedState(graphState, rendererRef);
+      
+      if (!verificationResult.success) {
+        console.error('Render mismatch detected:', verificationResult.mismatches);
+        
+        if (this.errorCount < this.maxRetries) {
+          this.errorCount++;
+          console.log(`Retrying reconciliation (attempt ${this.errorCount}/${this.maxRetries})`);
+          
+          // Rollback and retry
+          await this.rollbackRenderer(rendererRef);
+          this.reconciliationInProgress = false;
+          return await this.reconcileWithRenderer(graphState, rendererRef, true);
+        } else {
+          throw new Error('Render reconciliation failed after maximum retries');
+        }
+      }
+
+      // Success - update last rendered state
+      this.lastRenderedState = this.cloneState(graphState);
+      this.errorCount = 0;
+      this.reconciliationInProgress = false;
+
+      return {
+        success: true,
+        diff,
+        applied: reconcileResult.applied,
+        verified: true
+      };
+
+    } catch (error) {
+      this.reconciliationInProgress = false;
+      this.errorCount++;
+      
+      // Show error banner to user
+      this.showErrorBanner('Render mismatch; retried', error.message);
+      
+      throw error;
+    }
+  }
+
+  computeStateDiff(oldState, newState) {
+    const diff = {
+      nodes: { added: [], updated: [], removed: [] },
+      edges: { added: [], updated: [], removed: [] },
+      isEmpty: true
+    };
+
+    if (!oldState) {
+      // First render - everything is new
+      diff.nodes.added = Object.values(newState.nodes);
+      diff.edges.added = Object.values(newState.edges);
+      diff.isEmpty = false;
+      return diff;
+    }
+
+    // Compare nodes
+    const oldNodeIds = new Set(Object.keys(oldState.nodes));
+    const newNodeIds = new Set(Object.keys(newState.nodes));
+
+    // Added nodes
+    for (const nodeId of newNodeIds) {
+      if (!oldNodeIds.has(nodeId)) {
+        diff.nodes.added.push(newState.nodes[nodeId]);
+        diff.isEmpty = false;
+      }
+    }
+
+    // Removed nodes
+    for (const nodeId of oldNodeIds) {
+      if (!newNodeIds.has(nodeId)) {
+        diff.nodes.removed.push(oldState.nodes[nodeId]);
+        diff.isEmpty = false;
+      }
+    }
+
+    // Updated nodes
+    for (const nodeId of newNodeIds) {
+      if (oldNodeIds.has(nodeId)) {
+        const oldNode = oldState.nodes[nodeId];
+        const newNode = newState.nodes[nodeId];
+        
+        if (this.hasNodeChanged(oldNode, newNode)) {
+          diff.nodes.updated.push({ old: oldNode, new: newNode });
+          diff.isEmpty = false;
+        }
+      }
+    }
+
+    // Compare edges
+    const oldEdgeIds = new Set(Object.keys(oldState.edges));
+    const newEdgeIds = new Set(Object.keys(newState.edges));
+
+    // Added edges
+    for (const edgeId of newEdgeIds) {
+      if (!oldEdgeIds.has(edgeId)) {
+        diff.edges.added.push(newState.edges[edgeId]);
+        diff.isEmpty = false;
+      }
+    }
+
+    // Removed edges
+    for (const edgeId of oldEdgeIds) {
+      if (!newEdgeIds.has(edgeId)) {
+        diff.edges.removed.push(oldState.edges[edgeId]);
+        diff.isEmpty = false;
+      }
+    }
+
+    // Updated edges
+    for (const edgeId of newEdgeIds) {
+      if (oldEdgeIds.has(edgeId)) {
+        const oldEdge = oldState.edges[edgeId];
+        const newEdge = newState.edges[edgeId];
+        
+        if (this.hasEdgeChanged(oldEdge, newEdge)) {
+          diff.edges.updated.push({ old: oldEdge, new: newEdge });
+          diff.isEmpty = false;
+        }
+      }
+    }
+
+    return diff;
+  }
+
+  hasNodeChanged(oldNode, newNode) {
+    return (
+      oldNode.label !== newNode.label ||
+      oldNode.category !== newNode.category ||
+      oldNode.importance !== newNode.importance ||
+      oldNode.abstract !== newNode.abstract ||
+      oldNode.updated_at !== newNode.updated_at
+    );
+  }
+
+  hasEdgeChanged(oldEdge, newEdge) {
+    return (
+      oldEdge.source !== newEdge.source ||
+      oldEdge.target !== newEdge.target ||
+      oldEdge.relation !== newEdge.relation ||
+      oldEdge.weight !== newEdge.weight ||
+      oldEdge.directed !== newEdge.directed
+    );
+  }
+
+  async applyDiffToRenderer(diff, rendererRef) {
+    try {
+      const applied = { nodes: 0, edges: 0 };
+
+      if (!rendererRef.current) {
+        throw new Error('Renderer reference is null');
+      }
+
+      // Get current graph data from renderer
+      const currentGraphData = rendererRef.current.graphData();
+      const newGraphData = { ...currentGraphData };
+
+      // Apply node changes
+      if (diff.nodes.added.length > 0) {
+        const newNodes = diff.nodes.added.map(node => this.nodeToVisualizationFormat(node));
+        newGraphData.nodes = [...(newGraphData.nodes || []), ...newNodes];
+        applied.nodes += newNodes.length;
+      }
+
+      if (diff.nodes.removed.length > 0) {
+        const removedIds = new Set(diff.nodes.removed.map(node => node.id));
+        newGraphData.nodes = (newGraphData.nodes || []).filter(node => !removedIds.has(node.id));
+        applied.nodes += diff.nodes.removed.length;
+      }
+
+      if (diff.nodes.updated.length > 0) {
+        const nodeMap = new Map((newGraphData.nodes || []).map(node => [node.id, node]));
+        
+        for (const { new: updatedNode } of diff.nodes.updated) {
+          const visualNode = this.nodeToVisualizationFormat(updatedNode);
+          nodeMap.set(updatedNode.id, visualNode);
+          applied.nodes++;
+        }
+        
+        newGraphData.nodes = Array.from(nodeMap.values());
+      }
+
+      // Apply edge changes
+      if (diff.edges.added.length > 0) {
+        const newEdges = diff.edges.added.map(edge => this.edgeToVisualizationFormat(edge));
+        newGraphData.links = [...(newGraphData.links || []), ...newEdges];
+        applied.edges += newEdges.length;
+      }
+
+      if (diff.edges.removed.length > 0) {
+        const removedIds = new Set(diff.edges.removed.map(edge => edge.id));
+        newGraphData.links = (newGraphData.links || []).filter(link => {
+          const linkId = `${link.source}-${link.target}`;
+          return !removedIds.has(linkId);
+        });
+        applied.edges += diff.edges.removed.length;
+      }
+
+      if (diff.edges.updated.length > 0) {
+        const linkMap = new Map();
+        (newGraphData.links || []).forEach(link => {
+          const linkId = `${link.source}-${link.target}`;
+          linkMap.set(linkId, link);
+        });
+        
+        for (const { new: updatedEdge } of diff.edges.updated) {
+          const visualEdge = this.edgeToVisualizationFormat(updatedEdge);
+          linkMap.set(updatedEdge.id, visualEdge);
+          applied.edges++;
+        }
+        
+        newGraphData.links = Array.from(linkMap.values());
+      }
+
+      // Apply the new graph data to the renderer
+      rendererRef.current.graphData(newGraphData);
+
+      return { success: true, applied };
+
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  nodeToVisualizationFormat(node) {
+    return {
+      id: node.id,
+      label: node.label,
+      category: node.category,
+      importance: node.importance,
+      description: node.abstract,
+      size: 8 + (node.importance * 2),
+      color: this.getNodeColor(node.category)
+    };
+  }
+
+  edgeToVisualizationFormat(edge) {
+    return {
+      source: edge.source,
+      target: edge.target,
+      relationship: edge.relation,
+      strength: edge.weight,
+      directed: edge.directed
+    };
+  }
+
+  getNodeColor(category) {
+    const colors = {
+      'core_concept': '#8B5CF6',
+      'sub_concept': '#C084FC',
+      'thinker': '#F59E0B',
+      'key_phrase': '#10B981'
+    };
+    return colors[category] || '#6B7280';
+  }
+
+  async verifyRenderedState(graphState, rendererRef) {
+    try {
+      if (!rendererRef.current) {
+        return { success: false, error: 'Renderer reference is null' };
+      }
+
+      const renderedData = rendererRef.current.graphData();
+      const mismatches = [];
+
+      // Verify node counts
+      const expectedNodeCount = Object.keys(graphState.nodes).length;
+      const actualNodeCount = (renderedData.nodes || []).length;
+      
+      if (expectedNodeCount !== actualNodeCount) {
+        mismatches.push(`Node count mismatch: expected ${expectedNodeCount}, got ${actualNodeCount}`);
+      }
+
+      // Verify edge counts
+      const expectedEdgeCount = Object.keys(graphState.edges).length;
+      const actualEdgeCount = (renderedData.links || []).length;
+      
+      if (expectedEdgeCount !== actualEdgeCount) {
+        mismatches.push(`Edge count mismatch: expected ${expectedEdgeCount}, got ${actualEdgeCount}`);
+      }
+
+      // Sample verification of node attributes
+      const sampleNodes = Object.values(graphState.nodes).slice(0, 5);
+      const renderedNodeMap = new Map((renderedData.nodes || []).map(node => [node.id, node]));
+      
+      for (const storeNode of sampleNodes) {
+        const renderedNode = renderedNodeMap.get(storeNode.id);
+        if (!renderedNode) {
+          mismatches.push(`Node ${storeNode.id} missing from renderer`);
+        } else if (renderedNode.label !== storeNode.label) {
+          mismatches.push(`Node ${storeNode.id} label mismatch: expected "${storeNode.label}", got "${renderedNode.label}"`);
+        }
+      }
+
+      return {
+        success: mismatches.length === 0,
+        mismatches
+      };
+
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async rollbackRenderer(rendererRef) {
+    try {
+      if (this.lastRenderedState && rendererRef.current) {
+        const rollbackData = {
+          nodes: Object.values(this.lastRenderedState.nodes).map(node => this.nodeToVisualizationFormat(node)),
+          links: Object.values(this.lastRenderedState.edges).map(edge => this.edgeToVisualizationFormat(edge))
+        };
+        
+        rendererRef.current.graphData(rollbackData);
+      }
+    } catch (error) {
+      console.error('Rollback failed:', error);
+    }
+  }
+
+  showErrorBanner(title, message) {
+    // In a real implementation, this would show a user-visible error banner
+    console.error(`${title}: ${message}`);
+    
+    // Could dispatch to a global error state or show a toast notification
+    if (window.showErrorToast) {
+      window.showErrorToast(title, message);
+    }
+  }
+
+  cloneState(state) {
+    return {
+      nodes: { ...state.nodes },
+      edges: { ...state.edges },
+      seenNodeIds: new Set(state.seenNodeIds),
+      seenEdgeIds: new Set(state.seenEdgeIds),
+      version: state.version
+    };
+  }
+
+  // Reset reconciler state
+  reset() {
+    this.lastRenderedState = null;
+    this.pendingUpdates.clear();
+    this.reconciliationInProgress = false;
+    this.errorCount = 0;
+  }
+
+  // Get reconciliation statistics
+  getStats() {
+    return {
+      lastRenderedVersion: this.lastRenderedState?.version || 0,
+      pendingUpdates: this.pendingUpdates.size,
+      reconciliationInProgress: this.reconciliationInProgress,
+      errorCount: this.errorCount,
+      maxRetries: this.maxRetries
+    };
+  }
+}
+
+// Create singleton instance
+export const renderReconciler = new RenderReconciler();
+export default renderReconciler;
+</file>
+
+<file path="scroll-area.jsx">
+import React from 'react';
+
+const ScrollArea = ({ children, className = '' }) => (
+  <div className={`overflow-auto ${className}`} style={{ maxHeight: '400px' }}>
+    {children}
+  </div>
+);
+
+export { ScrollArea };
+</file>
+
+<file path="select.jsx">
+import React from 'react';
+
+const Select = ({ children, onValueChange, defaultValue, value }) => {
+  return (
+    <div className="relative">
+      {children}
+    </div>
+  );
+};
+
+const SelectTrigger = ({ children, className = '' }) => (
+  <button className={`flex h-10 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 ${className}`}>
+    {children}
+  </button>
+);
+
+const SelectValue = ({ placeholder }) => (
+  <span className="text-gray-500">{placeholder}</span>
+);
+
+const SelectContent = ({ children }) => (
+  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-50">
+    {children}
+  </div>
+);
+
+const SelectItem = ({ children, value, onSelect }) => (
+  <div 
+    className="px-3 py-2 text-sm text-gray-900 hover:bg-gray-100 cursor-pointer"
+    onClick={() => onSelect && onSelect(value)}
+  >
+    {children}
+  </div>
+);
+
+export { Select, SelectTrigger, SelectValue, SelectContent, SelectItem };
+</file>
+
+<file path="separator.jsx">
+import React from 'react';
+
+const Separator = ({ className = '', orientation = 'horizontal' }) => (
+  <div
+    className={`shrink-0 bg-gray-300 ${
+      orientation === 'horizontal' ? 'h-px w-full' : 'h-full w-px'
+    } ${className}`}
+  />
+);
+
+export { Separator };
+</file>
+
+<file path="textarea.jsx">
+import React from 'react';
+
+const Textarea = ({ className = '', ...props }) => (
+  <textarea
+    className={`flex min-h-[80px] w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+    {...props}
+  />
+);
+
+export { Textarea };
+</file>
+
+<file path="user.py">
+from flask_sqlalchemy import SQLAlchemy
+db = SQLAlchemy()
+</file>
+
+<file path="vite.config.js">
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+  server: {
+    host: '0.0.0.0',
+    port: 5173
+  }
+})
+</file>
+
+<file path="WelcomePanel.jsx">
+import React, { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Brain, X, Minimize2, Maximize2 } from 'lucide-react';
+
+const WelcomePanel = () => {
+  const [isVisible, setIsVisible] = useState(true);
+  const [isMinimized, setIsMinimized] = useState(false);
+
+  if (!isVisible) return null;
+
+  return (
+    <div className="absolute bottom-4 left-4 z-10">
+      <Card className="w-80 bg-card/90 backdrop-blur-sm">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Brain className="w-5 h-5 text-purple-400" />
+              Welcome to Nihiltheism
+            </CardTitle>
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setIsMinimized(!isMinimized)}
+                className="h-6 w-6 p-0"
+              >
+                {isMinimized ? <Maximize2 className="w-3 h-3" /> : <Minimize2 className="w-3 h-3" />}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setIsVisible(false)}
+                className="h-6 w-6 p-0"
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+          </div>
+          {!isMinimized && (
+            <CardDescription>
+              An interactive exploration of philosophical concepts
+            </CardDescription>
+          )}
+        </CardHeader>
+        {!isMinimized && (
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Click on any node to explore its connections and dive deeper into the philosophical framework of Nihiltheism.
+            </p>
+            <div className="flex flex-wrap gap-1">
+              <Badge variant="outline" className="text-xs">Search concepts</Badge>
+              <Badge variant="outline" className="text-xs">Filter categories</Badge>
+              <Badge variant="outline" className="text-xs">Analyze connections</Badge>
+              <Badge variant="outline" className="text-xs">Discover insights</Badge>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+    </div>
+  );
+};
+
+export default WelcomePanel;
+</file>
+
+</files>
